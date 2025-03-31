@@ -1,16 +1,14 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from models import User, UserCreate, UserLogin, Token
 from auth import (
-    authenticate_user, create_user, get_current_user,
-    create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, db, init_db
+    get_password_hash, verify_password, create_access_token,
+    authenticate_user, get_current_user, init_db, db
 )
-from datetime import timedelta
-import os
-from dotenv import load_dotenv
 import logging
-from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+import os
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -19,25 +17,11 @@ logger = logging.getLogger(__name__)
 # Загрузка переменных окружения
 load_dotenv()
 
-# Получение порта из переменных окружения (для Railway)
-PORT = int(os.getenv("PORT", "8000"))
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup
-    try:
-        await init_db()
-        logger.info("Successfully connected to MongoDB")
-    except Exception as e:
-        logger.error(f"Failed to connect to MongoDB: {e}")
-        raise
-    
-    yield
-    
-    # Shutdown
-    logger.info("Closing MongoDB connection")
-
-app = FastAPI(title="Joba API", lifespan=lifespan)
+app = FastAPI(
+    title="Joba API",
+    description="API для сервиса Joba",
+    version="1.0.0"
+)
 
 # Настройка CORS
 app.add_middleware(
@@ -47,6 +31,32 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def startup_event():
+    try:
+        await init_db()
+        logger.info("Successfully connected to MongoDB")
+    except Exception as e:
+        logger.error(f"Failed to connect to MongoDB: {str(e)}")
+        raise
+
+@app.get("/")
+async def root():
+    return {"message": "Welcome to Joba API"}
+
+@app.get("/health")
+async def health_check():
+    try:
+        # Проверяем подключение к базе данных
+        await db.command("ping")
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database connection failed"
+        )
 
 @app.post("/signup", response_model=User)
 async def signup(user: UserCreate):
@@ -99,39 +109,6 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
     Получение информации о текущем пользователе
     """
     return current_user
-
-@app.get("/health")
-async def health_check():
-    """
-    Проверка здоровья API и подключения к базе данных
-    """
-    try:
-        # Проверяем подключение к базе данных
-        await db.command("ping")
-        
-        # Проверяем доступ к коллекции users
-        users_count = await db.users.count_documents({})
-        
-        return {
-            "status": "healthy",
-            "database": {
-                "connected": True,
-                "ping": "success",
-                "users_collection": "accessible",
-                "users_count": users_count
-            }
-        }
-    except Exception as e:
-        logger.error(f"Health check failed: {str(e)}")
-        # Возвращаем 200 OK даже при проблемах с БД
-        return {
-            "status": "degraded",
-            "database": {
-                "connected": False,
-                "error": str(e)
-            },
-            "api": "running"
-        }
 
 @app.get("/debug/users")
 async def debug_users():
