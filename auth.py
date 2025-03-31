@@ -43,12 +43,7 @@ async def init_db():
         logger.info(f"Attempting to connect to MongoDB with URL: {mongodb_url}")
         client = AsyncIOMotorClient(
             mongodb_url,
-            tls=True,
-            tlsAllowInvalidCertificates=True,
-            tlsAllowInvalidHostnames=True,
-            ssl=True,
-            serverSelectionTimeoutMS=10000,
-            connectTimeoutMS=10000
+            serverSelectionTimeoutMS=5000
         )
         
         # Проверяем подключение
