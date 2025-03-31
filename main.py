@@ -53,6 +53,11 @@ async def root():
 async def health_check():
     try:
         # Проверяем подключение к базе данных
+        if not db:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Database connection not initialized"
+            )
         await db.command("ping")
         return {"status": "healthy", "database": "connected"}
     except Exception as e:

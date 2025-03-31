@@ -58,6 +58,8 @@ async def init_db():
         await db.users.find_one()
         logger.info("Successfully accessed users collection")
         
+        return db
+        
     except Exception as e:
         logger.error(f"Failed to initialize database: {str(e)}")
         raise
