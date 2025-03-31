@@ -10,6 +10,7 @@ from datetime import timedelta
 import os
 from dotenv import load_dotenv
 import logging
+from contextlib import asynccontextmanager
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -18,7 +19,22 @@ logger = logging.getLogger(__name__)
 # Загрузка переменных окружения
 load_dotenv()
 
-app = FastAPI(title="Joba API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    try:
+        await init_db()
+        logger.info("Successfully connected to MongoDB")
+    except Exception as e:
+        logger.error(f"Failed to connect to MongoDB: {e}")
+        raise
+    
+    yield
+    
+    # Shutdown
+    logger.info("Closing MongoDB connection")
+
+app = FastAPI(title="Joba API", lifespan=lifespan)
 
 # Настройка CORS
 app.add_middleware(
@@ -28,20 +44,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Подключение к MongoDB
-@app.on_event("startup")
-async def startup_db_client():
-    try:
-        await init_db()
-        logger.info("Successfully connected to MongoDB")
-    except Exception as e:
-        logger.error(f"Failed to connect to MongoDB: {e}")
-        raise
-
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    logger.info("Closing MongoDB connection")
 
 @app.post("/signup", response_model=User)
 async def signup(user: UserCreate):
