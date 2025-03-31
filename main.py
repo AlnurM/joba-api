@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 # Загрузка переменных окружения
 load_dotenv()
 
+# Получение порта из переменных окружения (для Railway)
+PORT = int(os.getenv("PORT", "8000"))
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
