@@ -7,24 +7,29 @@ class UserBase(BaseModel):
     username: Optional[str] = None
 
 class UserCreate(UserBase):
-    password: str = Field(..., min_length=8)
+    password: str
 
 class UserLogin(BaseModel):
-    login: str = Field(..., min_length=1, description="Email или username пользователя")
-    password: str = Field(..., min_length=8)
+    login: str  # email или username
+    password: str
 
 class User(UserBase):
     id: str
-    hashed_password: str
-    is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    is_active: bool = True
 
     class Config:
         from_attributes = True
 
+class UserInDB(User):
+    hashed_password: str
+
 class Token(BaseModel):
     access_token: str
-    token_type: str
+    refresh_token: str
+    token_type: str = "bearer"
 
 class TokenData(BaseModel):
-    email: Optional[str] = None 
+    sub: str
+    exp: datetime
+    type: str  # access или refresh 
