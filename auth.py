@@ -35,10 +35,10 @@ logger = logging.getLogger(__name__)
 async def init_db():
     global db
     try:
-        mongodb_url = os.getenv("MONGODB_URL")
+        mongodb_url = os.getenv("MONGO_URL")
         if not mongodb_url:
-            logger.error("MONGODB_URL не установлен в переменных окружения")
-            raise ValueError("MONGODB_URL не установлен в переменных окружения")
+            logger.error("MONGO_URL не установлен в переменных окружения")
+            raise ValueError("MONGO_URL не установлен в переменных окружения")
         
         logger.info(f"Attempting to connect to MongoDB with URL: {mongodb_url}")
         client = AsyncIOMotorClient(
