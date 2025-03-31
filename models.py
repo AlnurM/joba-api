@@ -32,4 +32,12 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     sub: str
     exp: datetime
-    type: str  # access или refresh 
+    type: str  # access или refresh
+
+class AvailabilityCheck(BaseModel):
+    email: Optional[str] = None
+    username: Optional[str] = None
+
+class AvailabilityResponse(BaseModel):
+    available: bool
+    message: str 

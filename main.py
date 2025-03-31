@@ -1,11 +1,12 @@
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from models import User, UserCreate, UserLogin, Token
+from models import User, UserCreate, UserLogin, Token, AvailabilityCheck, AvailabilityResponse
 from auth import (
     get_password_hash, verify_password, create_access_token,
     create_refresh_token, authenticate_user, get_current_user,
-    init_db, db, refresh_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+    init_db, db, refresh_access_token, ACCESS_TOKEN_EXPIRE_MINUTES,
+    check_availability
 )
 import logging
 from dotenv import load_dotenv
@@ -151,6 +152,25 @@ async def debug_users():
         return [{"id": str(user["_id"]), "email": user["email"], "username": user.get("username")} for user in users]
     except Exception as e:
         logger.error(f"Error getting users: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@app.post("/check-availability", response_model=AvailabilityResponse)
+async def check_username_email_availability(check_data: AvailabilityCheck):
+    """
+    Проверка доступности email и username.
+    Можно проверить оба поля одновременно или по отдельности.
+    """
+    try:
+        available, message = await check_availability(
+            email=check_data.email,
+            username=check_data.username
+        )
+        return AvailabilityResponse(available=available, message=message)
+    except Exception as e:
+        logger.error(f"Error checking availability: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)

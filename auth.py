@@ -197,4 +197,21 @@ async def refresh_access_token(refresh_token: str) -> str:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token"
-        ) 
+        )
+
+async def check_availability(email: Optional[str] = None, username: Optional[str] = None) -> tuple[bool, str]:
+    """
+    Проверяет доступность email и username.
+    Возвращает (доступно ли, сообщение)
+    """
+    if email:
+        existing_user = await db.users.find_one({"email": email})
+        if existing_user:
+            return False, "Email уже используется"
+    
+    if username:
+        existing_user = await db.users.find_one({"username": username})
+        if existing_user:
+            return False, "Username уже используется"
+    
+    return True, "Доступно" 
