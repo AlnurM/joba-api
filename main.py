@@ -106,14 +106,30 @@ async def health_check():
     Проверка здоровья API и подключения к базе данных
     """
     try:
+        # Проверяем подключение к базе данных
         await db.command("ping")
-        return {"status": "healthy", "database": "connected"}
+        
+        # Проверяем доступ к коллекции users
+        users_count = await db.users.count_documents({})
+        
+        return {
+            "status": "healthy",
+            "database": {
+                "connected": True,
+                "ping": "success",
+                "users_collection": "accessible",
+                "users_count": users_count
+            }
+        }
     except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Database connection failed"
-        )
+        logger.error(f"Health check failed: {str(e)}")
+        return {
+            "status": "unhealthy",
+            "database": {
+                "connected": False,
+                "error": str(e)
+            }
+        }
 
 @app.get("/debug/users")
 async def debug_users():

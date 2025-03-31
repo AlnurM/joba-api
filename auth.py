@@ -34,8 +34,29 @@ logger = logging.getLogger(__name__)
 # Инициализация подключения к базе данных
 async def init_db():
     global db
-    client = AsyncIOMotorClient(os.getenv("MONGODB_URL"))
-    db = client.jobadb
+    try:
+        mongodb_url = os.getenv("MONGODB_URL")
+        if not mongodb_url:
+            logger.error("MONGODB_URL не установлен в переменных окружения")
+            raise ValueError("MONGODB_URL не установлен в переменных окружения")
+        
+        logger.info(f"Attempting to connect to MongoDB with URL: {mongodb_url}")
+        client = AsyncIOMotorClient(mongodb_url)
+        
+        # Проверяем подключение
+        await client.admin.command('ping')
+        logger.info("Successfully pinged MongoDB server")
+        
+        db = client.joba
+        logger.info("Successfully initialized database connection")
+        
+        # Проверяем доступ к коллекции users
+        await db.users.find_one()
+        logger.info("Successfully accessed users collection")
+        
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {str(e)}")
+        raise
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
