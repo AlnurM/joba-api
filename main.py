@@ -123,12 +123,14 @@ async def health_check():
         }
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
+        # Возвращаем 200 OK даже при проблемах с БД
         return {
-            "status": "unhealthy",
+            "status": "degraded",
             "database": {
                 "connected": False,
                 "error": str(e)
-            }
+            },
+            "api": "running"
         }
 
 @app.get("/debug/users")
