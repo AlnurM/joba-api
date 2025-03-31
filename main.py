@@ -17,6 +17,9 @@ logger = logging.getLogger(__name__)
 # Загрузка переменных окружения
 load_dotenv()
 
+# Получение порта из переменных окружения (для Railway)
+PORT = int(os.getenv("PORT", "8000"))
+
 app = FastAPI(
     title="Joba API",
     description="API для сервиса Joba",
@@ -37,6 +40,7 @@ async def startup_event():
     try:
         await init_db()
         logger.info("Successfully connected to MongoDB")
+        logger.info(f"Application will run on port: {PORT}")
     except Exception as e:
         logger.error(f"Failed to connect to MongoDB: {str(e)}")
         raise
