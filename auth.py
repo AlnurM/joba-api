@@ -41,7 +41,12 @@ async def init_db():
             raise ValueError("MONGODB_URL не установлен в переменных окружения")
         
         logger.info(f"Attempting to connect to MongoDB with URL: {mongodb_url}")
-        client = AsyncIOMotorClient(mongodb_url)
+        client = AsyncIOMotorClient(
+            mongodb_url,
+            tls=True,
+            tlsAllowInvalidCertificates=True,
+            serverSelectionTimeoutMS=5000
+        )
         
         # Проверяем подключение
         await client.admin.command('ping')
