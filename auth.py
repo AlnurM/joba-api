@@ -45,7 +45,10 @@ async def init_db():
             mongodb_url,
             tls=True,
             tlsAllowInvalidCertificates=True,
-            serverSelectionTimeoutMS=5000
+            tlsAllowInvalidHostnames=True,
+            ssl=True,
+            serverSelectionTimeoutMS=10000,
+            connectTimeoutMS=10000
         )
         
         # Проверяем подключение
