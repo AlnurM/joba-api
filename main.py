@@ -12,6 +12,7 @@ import logging
 from dotenv import load_dotenv
 import os
 from datetime import timedelta
+from motor.motor_asyncio import AsyncIOMotorClient
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -55,19 +56,41 @@ async def root():
 @app.get("/health")
 async def health_check():
     try:
-        # Проверяем подключение к базе данных
-        if not db:
+        # Получаем URL базы данных
+        mongodb_url = os.getenv("MONGO_URL")
+        if not mongodb_url:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Database connection not initialized"
+                detail="MongoDB URL not configured"
             )
-        await db.command("ping")
-        return {"status": "healthy", "database": "connected"}
+        
+        # Создаем временное подключение для проверки
+        client = AsyncIOMotorClient(
+            mongodb_url,
+            serverSelectionTimeoutMS=5000,
+            connectTimeoutMS=5000
+        )
+        
+        # Проверяем подключение через ping
+        await client.admin.command('ping')
+        
+        # Проверяем доступ к базе данных и коллекции
+        test_db = client.joba
+        await test_db.users.find_one()
+        
+        return {
+            "status": "healthy",
+            "database": {
+                "connected": True,
+                "ping": "success",
+                "users_collection": "accessible"
+            }
+        }
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Database connection failed"
+            detail=str(e)
         )
 
 @app.post("/signup", response_model=User)

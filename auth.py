@@ -49,15 +49,23 @@ async def init_db():
         )
         
         # Проверяем подключение
-        await client.admin.command('ping')
-        logger.info("Successfully pinged MongoDB server")
+        try:
+            await client.admin.command('ping')
+            logger.info("Successfully pinged MongoDB server")
+        except Exception as e:
+            logger.error(f"Failed to ping MongoDB server: {str(e)}")
+            raise
         
         db = client.joba
         logger.info("Successfully initialized database connection")
         
         # Проверяем доступ к коллекции users
-        await db.users.find_one()
-        logger.info("Successfully accessed users collection")
+        try:
+            await db.users.find_one()
+            logger.info("Successfully accessed users collection")
+        except Exception as e:
+            logger.error(f"Failed to access users collection: {str(e)}")
+            raise
         
         return db
         
