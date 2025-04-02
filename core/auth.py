@@ -6,6 +6,7 @@ import os
 import logging
 from models import User, UserCreate, Token
 from core.database import get_db
+from bson.objectid import ObjectId
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -97,12 +98,20 @@ async def get_current_user(token: str) -> User:
         raise credentials_exception
     
     db = get_db()
-    user = await db.users.find_one({"_id": user_id})
-    if user is None:
+    try:
+        # Преобразуем строковый ID в ObjectId
+        user = await db.users.find_one({"_id": ObjectId(user_id)})
+        if user is None:
+            raise credentials_exception
+        
+        # Преобразуем ObjectId в строку для id
+        user["id"] = str(user["_id"])
+        # Удаляем _id, так как он не нужен в модели
+        del user["_id"]
+        return User(**user)
+    except Exception as e:
+        logger.error(f"Error getting user: {str(e)}")
         raise credentials_exception
-    
-    user["id"] = str(user["_id"])
-    return User(**user)
 
 async def refresh_access_token(refresh_token: str) -> str:
     """Обновление access token с помощью refresh token"""

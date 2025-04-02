@@ -3,6 +3,7 @@ from models.auth import (
     UserLogin, Token, TokenData,
     AvailabilityCheck, AvailabilityResponse
 )
+from models.cover_letters import CoverLetter, CoverLetterContent
 
 __all__ = [
     # User models
@@ -16,5 +17,9 @@ __all__ = [
     "Token",
     "TokenData",
     "AvailabilityCheck",
-    "AvailabilityResponse"
+    "AvailabilityResponse",
+    
+    # Cover Letters models
+    "CoverLetter",
+    "CoverLetterContent"
 ] 

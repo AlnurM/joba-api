@@ -5,7 +5,8 @@ from core.database import init_db
 import logging
 from dotenv import load_dotenv
 import os
-from routers import auth, default
+from routers import auth, default, cover_letters
+from fastapi.security import HTTPBearer
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -17,13 +18,20 @@ load_dotenv()
 # Получение порта из переменных окружения (для Railway)
 PORT = int(os.getenv("PORT", "8080"))
 
+# Схема аутентификации
+security = HTTPBearer()
+
 app = FastAPI(
     title="Joba API",
     description="API для сервиса Joba",
-    version="1.0.0"
+    version="1.0.0",
+    openapi_tags=[
+        {"name": "authentication", "description": "Операции аутентификации"},
+        {"name": "cover-letters", "description": "Операции с сопроводительными письмами"}
+    ]
 )
 
-# Настройка CORS
+# Добавляем схему безопасности
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -44,4 +52,5 @@ async def startup_event():
 
 # Подключаем роутеры
 app.include_router(default.router)
-app.include_router(auth.router) 
+app.include_router(auth.router)
+app.include_router(cover_letters.router) 
