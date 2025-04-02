@@ -5,7 +5,7 @@ from core.database import init_db
 import logging
 from dotenv import load_dotenv
 import os
-from routers import auth, default, cover_letters
+from routers import auth, default, cover_letters, resumes
 from fastapi.security import HTTPBearer
 
 # Настройка логирования
@@ -27,7 +27,8 @@ app = FastAPI(
     version="1.0.0",
     openapi_tags=[
         {"name": "authentication", "description": "Операции аутентификации"},
-        {"name": "cover-letters", "description": "Операции с сопроводительными письмами"}
+        {"name": "cover-letters", "description": "Операции с сопроводительными письмами"},
+        {"name": "resumes", "description": "Операции с резюме"}
     ]
 )
 
@@ -53,4 +54,5 @@ async def startup_event():
 # Подключаем роутеры
 app.include_router(default.router)
 app.include_router(auth.router)
-app.include_router(cover_letters.router) 
+app.include_router(cover_letters.router)
+app.include_router(resumes.router) 
