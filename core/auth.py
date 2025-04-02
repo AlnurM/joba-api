@@ -4,18 +4,13 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 import os
 import logging
-from models import User, UserCreate, Token
+from domain.models import User, UserCreate, Token
 from core.database import get_db
 from bson.objectid import ObjectId
+from core.config import settings
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
-
-# Настройки безопасности
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 # Настройка хеширования паролей
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -31,16 +26,16 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = datetime.utcnow() + timedelta(hours=settings.ACCESS_TOKEN_EXPIRE_HOURS)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
 def create_refresh_token(data: dict) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
 async def create_user(user: UserCreate) -> User:
@@ -90,7 +85,7 @@ async def get_current_user(token: str) -> User:
     """Получение текущего пользователя по токену"""
     credentials_exception = ValueError("Could not validate credentials")
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id: str = payload.get("sub")
         if user_id is None:
             raise credentials_exception
@@ -116,7 +111,7 @@ async def get_current_user(token: str) -> User:
 async def refresh_access_token(refresh_token: str) -> str:
     """Обновление access token с помощью refresh token"""
     try:
-        payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(refresh_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id: str = payload.get("sub")
         if user_id is None:
             raise ValueError("Invalid refresh token")
@@ -128,7 +123,7 @@ async def refresh_access_token(refresh_token: str) -> str:
             raise ValueError("User not found")
         
         # Создаем новый access token
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token_expires = timedelta(hours=settings.ACCESS_TOKEN_EXPIRE_HOURS)
         access_token = create_access_token(
             data={"sub": str(user_id)}, expires_delta=access_token_expires
         )
