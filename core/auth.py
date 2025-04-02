@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Tuple
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 import os
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 # Настройки безопасности
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_HOURS = 24  # Изменено с 30 минут на 24 часа
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 # Настройка хеширования паролей
@@ -31,7 +31,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = datetime.utcnow() + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -128,7 +128,7 @@ async def refresh_access_token(refresh_token: str) -> str:
             raise ValueError("User not found")
         
         # Создаем новый access token
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token_expires = timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
         access_token = create_access_token(
             data={"sub": str(user_id)}, expires_delta=access_token_expires
         )
@@ -136,8 +136,17 @@ async def refresh_access_token(refresh_token: str) -> str:
     except JWTError:
         raise ValueError("Invalid refresh token")
 
-async def check_availability(email: Optional[str] = None, username: Optional[str] = None) -> tuple[bool, str]:
-    """Проверка доступности email и username"""
+async def check_availability(email: Optional[str] = None, username: Optional[str] = None) -> Tuple[bool, str]:
+    """
+    Проверяет доступность email и username.
+    
+    Args:
+        email: Email для проверки
+        username: Имя пользователя для проверки
+        
+    Returns:
+        Tuple[bool, str]: (доступно, сообщение)
+    """
     db = get_db()
     
     if email and await db.users.find_one({"email": email}):

@@ -1,14 +1,17 @@
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status, Response
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status, Response, Form
 from models import Resume, ResumeCreate, User
 from models.resumes import ResumeStatus
 from core.auth import get_current_user
-from core.storage import save_upload_file, get_file
+from core.storage import save_file_content, get_file, is_allowed_file, ALLOWED_EXTENSIONS
 from core.database import get_db
+from core.resume_processor import process_resume
 from datetime import datetime
 import logging
 from typing import List, Dict, Any
 from bson import ObjectId
 from fastapi.security import HTTPBearer
+import os
+import json
 
 router = APIRouter(prefix="/resumes", tags=["resumes"])
 logger = logging.getLogger(__name__)
@@ -43,9 +46,9 @@ async def get_resumes_by_user(
             "id": str(resume["_id"]),
             "user_id": resume["user_id"],
             "filename": resume["filename"],
-            "file_id": resume["file_id"],
-            "status": resume["status"],
-            "created_at": resume["created_at"]
+            "file_id": resume.get("file_id", ""),
+            "status": resume.get("status", ResumeStatus.ACTIVE),
+            "created_at": resume.get("created_at", datetime.utcnow())
         }
         processed_resumes.append(resume_dict)
     
@@ -62,37 +65,65 @@ async def get_resumes_by_user(
 @router.post("/upload", response_model=Resume)
 async def upload_resume(
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user_from_token),
+    db = Depends(get_db)
 ):
     """
-    Загрузка нового резюме
+    Загружает резюме и сохраняет его в базу данных.
+    
+    Args:
+        file: Файл резюме
+        current_user: Текущий пользователь
+        db: Подключение к базе данных
+        
+    Returns:
+        Resume с информацией о загруженном резюме
     """
     try:
-        # Сохранение файла в GridFS
-        filename, file_id = await save_upload_file(file, str(current_user.id))
+        # Проверяем расширение файла
+        file_extension = os.path.splitext(file.filename)[1].lower()
+        if file_extension not in ['.pdf', '.doc', '.docx']:
+            raise HTTPException(
+                status_code=400,
+                detail="Неподдерживаемый формат файла. Поддерживаются только PDF, DOC и DOCX"
+            )
+            
+        # Читаем содержимое файла
+        file_content = await file.read()
         
-        # Создание записи в базе данных
-        db = get_db()
+        # Сохраняем файл в GridFS
+        file_id = await save_file_content(file_content, file.filename, str(current_user.id))
+        
+        # Обрабатываем резюме
+        logger.info(f"Начинаем обработку резюме {file.filename}")
+        processed_data = await process_resume(file_content, file_extension)
+        
+        # Добавляем системные поля
         resume_data = {
+            **processed_data,
             "user_id": str(current_user.id),
-            "filename": filename,
+            "filename": file.filename,
             "file_id": file_id,
             "status": ResumeStatus.ACTIVE,
-            "created_at": datetime.utcnow()
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
         }
         
+        # Сохраняем в базу данных
         result = await db.resumes.insert_one(resume_data)
         resume_data["id"] = str(result.inserted_id)
         
+        logger.info(f"Резюме успешно сохранено в базу данных, ID: {resume_data['id']}")
+        
         return Resume(**resume_data)
         
-    except HTTPException as e:
-        raise e
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Ошибка при загрузке резюме: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Ошибка при загрузке резюме"
+            status_code=500,
+            detail=f"Ошибка при загрузке резюме: {str(e)}"
         )
 
 @router.get("/list", response_model=Dict[str, Any])
@@ -158,4 +189,46 @@ async def download_resume(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Ошибка при скачивании резюме"
+        )
+
+@router.post("/test-process")
+async def test_process_resume(
+    file: UploadFile = File(...),
+):
+    """
+    Тестовый эндпоинт для анализа резюме без сохранения
+    """
+    try:
+        # Проверяем тип файла
+        if not is_allowed_file(file.filename):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Недопустимый тип файла. Разрешены: {', '.join(ALLOWED_EXTENSIONS)}"
+            )
+
+        # Получаем расширение файла
+        file_extension = os.path.splitext(file.filename)[1]
+        
+        # Читаем содержимое файла
+        content = await file.read()
+        
+        try:
+            # Анализируем резюме
+            result = await process_resume(content, file_extension)
+            return result
+            
+        except Exception as e:
+            logger.error(f"Ошибка при анализе резюме: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail="Не удалось проанализировать резюме"
+            )
+            
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Ошибка при обработке файла: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Ошибка при обработке файла"
         ) 

@@ -97,4 +97,47 @@ async def get_file(file_id: str) -> Tuple[bytes, str]:
         raise HTTPException(
             status_code=500,
             detail="Ошибка при получении файла"
+        )
+
+async def save_file_content(content: bytes, filename: str, user_id: str) -> str:
+    """
+    Сохранение файла из байтов в GridFS
+    Возвращает file_id
+    """
+    if not is_allowed_file(filename):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Недопустимый тип файла. Разрешены: {', '.join(ALLOWED_EXTENSIONS)}"
+        )
+
+    # Проверка размера файла
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Файл слишком большой. Максимальный размер: {MAX_FILE_SIZE/1024/1024}MB"
+        )
+
+    try:
+        # Получаем GridFS bucket
+        db = get_db()
+        fs = AsyncIOMotorGridFSBucket(db)
+        
+        # Загружаем файл в GridFS
+        file_id = await fs.upload_from_stream(
+            filename,
+            content,
+            metadata={
+                "user_id": user_id,
+                "content_type": f"application/{get_file_extension(filename)[1:]}",
+                "original_filename": filename
+            }
+        )
+        
+        return str(file_id)
+        
+    except Exception as e:
+        logger.error(f"Ошибка при сохранении файла: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Ошибка при сохранении файла"
         ) 

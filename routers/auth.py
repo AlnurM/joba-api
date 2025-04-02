@@ -3,7 +3,7 @@ from models import User, UserCreate, UserLogin, Token, AvailabilityCheck, Availa
 from core.auth import (
     get_password_hash, verify_password, create_access_token,
     create_refresh_token, authenticate_user, get_current_user,
-    refresh_access_token, ACCESS_TOKEN_EXPIRE_MINUTES,
+    refresh_access_token, ACCESS_TOKEN_EXPIRE_HOURS,
     check_availability, create_user
 )
 import logging
@@ -45,7 +45,7 @@ async def signin(user_data: UserLogin):
             )
         
         logger.info(f"User authenticated successfully: {user.email}")
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token_expires = timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
         access_token = create_access_token(
             data={"sub": str(user.id)}, expires_delta=access_token_expires
         )
