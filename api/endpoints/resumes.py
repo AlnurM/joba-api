@@ -1,10 +1,13 @@
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status, Response
 from typing import List
 from services.resume import ResumeService
+from services.storage import StorageService
 from domain.models import Resume, User
 from api.deps import get_current_user, get_resume_service
+from core.config import get_settings
 
 router = APIRouter()
+settings = get_settings()
 
 @router.post("/upload", response_model=Resume)
 async def upload_resume(
@@ -80,4 +83,42 @@ async def delete_resume(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
+        )
+
+@router.post("/test-process")
+async def test_process_resume(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    resume_service: ResumeService = Depends(get_resume_service)
+):
+    """
+    Test endpoint for processing resumes without saving to database
+    """
+    try:
+        # Validate file type
+        if not StorageService.is_allowed_file(file.filename):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid file type. Allowed types: {', '.join(settings.ALLOWED_EXTENSIONS)}"
+            )
+
+        # Read file content
+        content = await file.read()
+        await file.seek(0)  # Reset file pointer for potential future use
+
+        # TODO: Implement your resume processing logic here
+        # For now, returning a basic response
+        return {
+            "filename": file.filename,
+            "content_type": file.content_type,
+            "size": len(content),
+            "message": "Resume processed successfully (test mode)"
+        }
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing resume: {str(e)}"
         ) 
