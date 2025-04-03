@@ -35,6 +35,17 @@ async def create_cover_letter(
     except DatabaseError as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
+@router.get("/active", response_model=Optional[CoverLetter])
+async def get_active_cover_letter(
+    current_user: User = Depends(get_current_user),
+    service: CoverLetterService = Depends(get_cover_letter_service)
+):
+    """Get the active cover letter for the current user"""
+    try:
+        return await service.get_active_cover_letter(str(current_user.id))
+    except DatabaseError as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
 @router.get("/{cover_letter_id}", response_model=CoverLetter)
 async def get_cover_letter(
     cover_letter_id: str,
@@ -123,17 +134,6 @@ async def search_cover_letters(
         )
     except ValidationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except DatabaseError as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
-
-@router.get("/active", response_model=Optional[CoverLetter])
-async def get_active_cover_letter(
-    current_user: User = Depends(get_current_user),
-    service: CoverLetterService = Depends(get_cover_letter_service)
-):
-    """Get the active cover letter for the current user"""
-    try:
-        return await service.get_active_cover_letter(str(current_user.id))
     except DatabaseError as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 

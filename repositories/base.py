@@ -26,7 +26,7 @@ class Repository(Generic[T]):
     def _convert_mongo_doc(self, doc: Dict[str, Any], include_sensitive: bool = False) -> Dict[str, Any]:
         """Convert MongoDB document to dict suitable for Pydantic model"""
         if not doc:
-            return doc
+            return {}
         
         # Convert ObjectId to string
         if '_id' in doc:
