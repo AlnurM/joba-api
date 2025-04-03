@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.database import init_db
 import logging
-from api.endpoints import auth, resumes
+from api.endpoints import auth, resumes, health
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -20,6 +20,10 @@ app = FastAPI(
         {
             "name": "Resumes",
             "description": "Resume management operations"
+        },
+        {
+            "name": "Health",
+            "description": "System health monitoring endpoints"
         }
     ]
 )
@@ -46,6 +50,7 @@ async def startup_event():
 # Include routers
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 app.include_router(resumes.router, prefix="/resumes", tags=["Resumes"])
+app.include_router(health.router, tags=["Health"])
 
 @app.get("/", tags=["Root"])
 async def root():
