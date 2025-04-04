@@ -22,7 +22,8 @@ async def get_resumes_by_user(
     per_page: int = 10
 ) -> Dict[str, Any]:
     """
-    Получение резюме пользователя с пагинацией
+    Получение резюме пользователя с пагинацией.
+    Сортировка по дате создания - от недавнего к старому.
     """
     skip = (page - 1) * per_page
     db = get_db()
@@ -30,8 +31,8 @@ async def get_resumes_by_user(
     # Получаем общее количество документов
     total = await db.resumes.count_documents({"user_id": user_id})
     
-    # Получаем документы с пагинацией
-    cursor = db.resumes.find({"user_id": user_id}).skip(skip).limit(per_page)
+    # Получаем документы с пагинацией и сортировкой по дате создания (от новых к старым)
+    cursor = db.resumes.find({"user_id": user_id}).sort("created_at", -1).skip(skip).limit(per_page)
     resumes = await cursor.to_list(length=per_page)
     
     # Преобразуем ObjectId в строки и создаем словари для каждого резюме
@@ -228,7 +229,7 @@ async def test_process_resume(
             detail="Ошибка при обработке файла"
         )
 
-@router.delete("/{resume_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{resume_id}", status_code=status.HTTP_200_OK)
 async def delete_resume(
     resume_id: str,
     current_user: User = Depends(get_current_user),
@@ -243,7 +244,7 @@ async def delete_resume(
         db: Подключение к базе данных
         
     Returns:
-        Статус 204 No Content при успешном удалении
+        Статус 200 OK при успешном удалении
     """
     try:
         # Проверяем валидность ObjectId
@@ -286,7 +287,7 @@ async def delete_resume(
             )
         
         logger.info(f"Резюме успешно удалено: {resume_id}")
-        return Response(status_code=status.HTTP_204_NO_CONTENT)
+        return {"message": "Резюме успешно удалено", "id": resume_id}
         
     except HTTPException:
         raise
