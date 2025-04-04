@@ -11,6 +11,7 @@ from typing import List, Dict, Any
 from bson import ObjectId
 import os
 import json
+from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 
 router = APIRouter(prefix="/resumes", tags=["resumes"])
 logger = logging.getLogger(__name__)
@@ -225,4 +226,73 @@ async def test_process_resume(
         raise HTTPException(
             status_code=500,
             detail="Ошибка при обработке файла"
+        )
+
+@router.delete("/{resume_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_resume(
+    resume_id: str,
+    current_user: User = Depends(get_current_user),
+    db = Depends(get_db)
+):
+    """
+    Удаляет резюме по ID
+    
+    Args:
+        resume_id: ID резюме для удаления
+        current_user: Текущий пользователь
+        db: Подключение к базе данных
+        
+    Returns:
+        Статус 204 No Content при успешном удалении
+    """
+    try:
+        # Проверяем валидность ObjectId
+        try:
+            object_id = ObjectId(resume_id)
+        except:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Некорректный формат ID резюме"
+            )
+        
+        # Проверяем, что резюме существует и принадлежит текущему пользователю
+        resume = await db.resumes.find_one({
+            "_id": object_id,
+            "user_id": str(current_user.id)
+        })
+        
+        if not resume:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Резюме не найдено или доступ запрещен"
+            )
+        
+        # Если у нас есть файл, также удаляем его из GridFS
+        if "file_id" in resume:
+            fs = AsyncIOMotorGridFSBucket(db)
+            try:
+                await fs.delete(ObjectId(resume["file_id"]))
+                logger.info(f"Файл резюме удален из GridFS: {resume['file_id']}")
+            except Exception as e:
+                logger.warning(f"Не удалось удалить файл резюме из GridFS: {str(e)}")
+        
+        # Удаляем резюме из базы данных
+        result = await db.resumes.delete_one({"_id": object_id})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Резюме не удалено"
+            )
+        
+        logger.info(f"Резюме успешно удалено: {resume_id}")
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка при удалении резюме: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка при удалении резюме: {str(e)}"
         ) 
