@@ -7,16 +7,10 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
 import os
 from typing import Dict, Any
-from fastapi.security import HTTPBearer
 from core.database import get_db
 from datetime import datetime
 
 router = APIRouter(prefix="/cover-letters", tags=["cover-letters"])
-
-security = HTTPBearer()
-
-async def get_current_user_from_token(credentials: HTTPBearer = Depends(security)) -> User:
-    return await get_current_user(credentials.credentials)
 
 async def get_cover_letters_by_user(
     user_id: str,
@@ -54,7 +48,7 @@ async def get_cover_letters_by_user(
 async def list_cover_letters(
     page: int = 1,
     per_page: int = 10,
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Получение списка cover letters текущего пользователя с пагинацией
@@ -74,7 +68,7 @@ async def list_cover_letters(
 @router.post("/create", response_model=CoverLetter)
 async def create_cover_letter(
     cover_letter: CoverLetterCreate,
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Создание нового cover letter
@@ -105,7 +99,7 @@ async def create_cover_letter(
 @router.get("/{cover_letter_id}", response_model=CoverLetter)
 async def get_cover_letter(
     cover_letter_id: str,
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Получение cover letter по ID.

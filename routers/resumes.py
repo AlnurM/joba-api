@@ -9,17 +9,11 @@ from datetime import datetime
 import logging
 from typing import List, Dict, Any
 from bson import ObjectId
-from fastapi.security import HTTPBearer
 import os
 import json
 
 router = APIRouter(prefix="/resumes", tags=["resumes"])
 logger = logging.getLogger(__name__)
-
-security = HTTPBearer()
-
-async def get_current_user_from_token(credentials: HTTPBearer = Depends(security)) -> User:
-    return await get_current_user(credentials.credentials)
 
 async def get_resumes_by_user(
     user_id: str,
@@ -65,7 +59,7 @@ async def get_resumes_by_user(
 @router.post("/upload", response_model=Resume)
 async def upload_resume(
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user_from_token),
+    current_user: User = Depends(get_current_user),
     db = Depends(get_db)
 ):
     """
@@ -130,7 +124,7 @@ async def upload_resume(
 async def list_resumes(
     page: int = 1,
     per_page: int = 10,
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Получение списка резюме текущего пользователя с пагинацией
@@ -151,7 +145,7 @@ async def list_resumes(
 @router.get("/{resume_id}/download")
 async def download_resume(
     resume_id: str,
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Скачивание резюме
@@ -182,8 +176,8 @@ async def download_resume(
             }
         )
         
-    except HTTPException as e:
-        raise e
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Ошибка при скачивании резюме: {str(e)}")
         raise HTTPException(

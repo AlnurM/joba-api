@@ -20,11 +20,14 @@ async def signup(user: UserCreate):
     """
     try:
         return await create_user(user)
+    except HTTPException as e:
+        # Пробрасываем HTTPException дальше
+        raise e
     except Exception as e:
         logger.error(f"Error during signup: {e}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error during signup"
         )
 
 @router.post("/signin", response_model=Token)
@@ -36,13 +39,6 @@ async def signin(user_data: UserLogin):
     try:
         logger.info(f"Attempting to authenticate user with login: {user_data.login}")
         user = await authenticate_user(user_data.login, user_data.password)
-        if not user:
-            logger.warning(f"Authentication failed for login: {user_data.login}")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect login or password",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
         
         logger.info(f"User authenticated successfully: {user.email}")
         access_token_expires = timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
@@ -51,11 +47,14 @@ async def signin(user_data: UserLogin):
         )
         refresh_token = create_refresh_token(data={"sub": str(user.id)})
         return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+    except HTTPException as e:
+        # Пробрасываем HTTPException дальше
+        raise e
     except Exception as e:
         logger.error(f"Error during signin: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error during signin"
         )
 
 @router.post("/refresh", response_model=Token)
@@ -70,11 +69,14 @@ async def refresh_token(refresh_token: str):
             "refresh_token": refresh_token,
             "token_type": "bearer"
         }
+    except HTTPException as e:
+        # Пробрасываем HTTPException дальше
+        raise e
     except Exception as e:
         logger.error(f"Error during token refresh: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error during token refresh"
         )
 
 @router.get("/me", response_model=User)
@@ -91,14 +93,17 @@ async def check_username_email_availability(check_data: AvailabilityCheck):
     Можно проверить оба поля одновременно или по отдельности.
     """
     try:
-        available, message = await check_availability(
+        result = await check_availability(
             email=check_data.email,
             username=check_data.username
         )
-        return AvailabilityResponse(available=available, message=message)
+        return AvailabilityResponse(**result)
+    except HTTPException as e:
+        # Пробрасываем HTTPException дальше
+        raise e
     except Exception as e:
         logger.error(f"Error checking availability: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
+            detail="Error checking availability"
         ) 

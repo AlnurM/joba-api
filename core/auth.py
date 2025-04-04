@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 import os
@@ -7,6 +7,8 @@ import logging
 from models import User, UserCreate, Token
 from core.database import get_db
 from bson.objectid import ObjectId
+from fastapi import HTTPException, status, Depends
+from fastapi.security import HTTPBearer
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -19,6 +21,9 @@ REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 # Настройка хеширования паролей
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Инициализация HTTPBearer
+security = HTTPBearer()
 
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
@@ -49,52 +54,87 @@ async def create_user(user: UserCreate) -> User:
     
     # Проверяем, существует ли пользователь с таким email
     if await db.users.find_one({"email": user.email}):
-        raise ValueError("Email already registered")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already registered"
+        )
     
     # Проверяем, существует ли пользователь с таким username (если указан)
     if user.username and await db.users.find_one({"username": user.username}):
-        raise ValueError("Username already taken")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Username already taken"
+        )
     
-    # Создаем нового пользователя
-    hashed_password = get_password_hash(user.password)
-    user_dict = user.dict()
-    user_dict["password"] = hashed_password
-    user_dict["created_at"] = datetime.utcnow()
-    
-    result = await db.users.insert_one(user_dict)
-    user_dict["id"] = str(result.inserted_id)
-    return User(**user_dict)
+    try:
+        # Создаем нового пользователя
+        hashed_password = get_password_hash(user.password)
+        user_dict = user.dict()
+        user_dict["password"] = hashed_password
+        user_dict["created_at"] = datetime.utcnow()
+        
+        result = await db.users.insert_one(user_dict)
+        user_dict["id"] = str(result.inserted_id)
+        return User(**user_dict)
+    except Exception as e:
+        logger.error(f"Error creating user: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error creating user"
+        )
 
 async def authenticate_user(login: str, password: str) -> Optional[User]:
     """Аутентификация пользователя по email или username"""
-    db = get_db()
-    
-    # Ищем пользователя по email или username
-    user = await db.users.find_one({
-        "$or": [
-            {"email": login},
-            {"username": login}
-        ]
-    })
-    
-    if not user:
-        return None
-    
-    if not verify_password(password, user["password"]):
-        return None
-    
-    user["id"] = str(user["_id"])
-    return User(**user)
-
-async def get_current_user(token: str) -> User:
-    """Получение текущего пользователя по токену"""
-    credentials_exception = ValueError("Could not validate credentials")
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        db = get_db()
+        
+        # Ищем пользователя по email или username
+        user = await db.users.find_one({
+            "$or": [
+                {"email": login},
+                {"username": login}
+            ]
+        })
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect login or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        if not verify_password(password, user["password"]):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect login or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        user["id"] = str(user["_id"])
+        return User(**user)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error during authentication: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication error"
+        )
+
+async def get_current_user(token: str = Depends(security)) -> User:
+    """Получение текущего пользователя по токену"""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token.credentials, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")
         if user_id is None:
             raise credentials_exception
-    except JWTError:
+    except JWTError as e:
+        logger.error(f"JWT Error: {str(e)}")
         raise credentials_exception
     
     db = get_db()
@@ -119,13 +159,21 @@ async def refresh_access_token(refresh_token: str) -> str:
         payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")
         if user_id is None:
-            raise ValueError("Invalid refresh token")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         
         db = get_db()
         # Проверяем, существует ли пользователь
         user = await db.users.find_one({"_id": user_id})
         if user is None:
-            raise ValueError("User not found")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         
         # Создаем новый access token
         access_token_expires = timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
@@ -134,9 +182,13 @@ async def refresh_access_token(refresh_token: str) -> str:
         )
         return access_token
     except JWTError:
-        raise ValueError("Invalid refresh token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-async def check_availability(email: Optional[str] = None, username: Optional[str] = None) -> Tuple[bool, str]:
+async def check_availability(email: Optional[str] = None, username: Optional[str] = None) -> Dict[str, Any]:
     """
     Проверяет доступность email и username.
     
@@ -145,14 +197,30 @@ async def check_availability(email: Optional[str] = None, username: Optional[str
         username: Имя пользователя для проверки
         
     Returns:
-        Tuple[bool, str]: (доступно, сообщение)
+        Dict[str, Any]: {"available": bool, "message": str}
     """
-    db = get_db()
-    
-    if email and await db.users.find_one({"email": email}):
-        return False, "Email already registered"
-    
-    if username and await db.users.find_one({"username": username}):
-        return False, "Username already taken"
-    
-    return True, "Available" 
+    try:
+        db = get_db()
+        
+        if email and await db.users.find_one({"email": email}):
+            return {
+                "available": False,
+                "message": "Email already registered"
+            }
+        
+        if username and await db.users.find_one({"username": username}):
+            return {
+                "available": False,
+                "message": "Username already taken"
+            }
+        
+        return {
+            "available": True,
+            "message": "Available"
+        }
+    except Exception as e:
+        logger.error(f"Error checking availability: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error checking availability"
+        ) 
