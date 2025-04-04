@@ -167,7 +167,7 @@ async def refresh_access_token(refresh_token: str) -> str:
         
         db = get_db()
         # Проверяем, существует ли пользователь
-        user = await db.users.find_one({"_id": user_id})
+        user = await db.users.find_one({"_id": ObjectId(user_id)})
         if user is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -181,11 +181,18 @@ async def refresh_access_token(refresh_token: str) -> str:
             data={"sub": str(user_id)}, expires_delta=access_token_expires
         )
         return access_token
-    except JWTError:
+    except JWTError as e:
+        logger.error(f"JWT Error in refresh_token: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+    except Exception as e:
+        logger.error(f"Error in refresh_token: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error refreshing token"
         )
 
 async def check_availability(email: Optional[str] = None, username: Optional[str] = None) -> Dict[str, Any]:
