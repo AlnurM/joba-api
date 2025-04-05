@@ -4,7 +4,7 @@ from models.auth import (
     AvailabilityCheck, AvailabilityResponse
 )
 from models.cover_letters import CoverLetter, CoverLetterContent
-from models.resumes import Resume, ResumeCreate, ResumeStatus
+from models.resumes import Resume, ResumeCreate, ResumeStatus, ResumeStatusUpdate
 
 __all__ = [
     # User models
@@ -27,5 +27,6 @@ __all__ = [
     # Resume models
     "Resume",
     "ResumeCreate",
-    "ResumeStatus"
+    "ResumeStatus",
+    "ResumeStatusUpdate"
 ] 
