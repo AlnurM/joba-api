@@ -1,6 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Header
 from typing import List, Optional
-from models.cover_letters import CoverLetter, CoverLetterCreate, CoverLetterStatus, CoverLetterStatusUpdate
+from models.cover_letters import (
+    CoverLetter, CoverLetterCreate, CoverLetterStatus,
+    CoverLetterStatusUpdate, CoverLetterGenerateRequest
+)
+from models.resumes import Resume
 from core.auth import get_current_user
 from models.users import User
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -9,6 +13,7 @@ import os
 from typing import Dict, Any
 from core.database import get_db
 from datetime import datetime
+from core.claude_client import ClaudeClient
 
 router = APIRouter(prefix="/cover-letters", tags=["cover-letters"])
 
@@ -260,6 +265,76 @@ async def delete_cover_letter(
             )
         
         return {"message": "Cover letter successfully deleted", "id": cover_letter_id}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.post("/generate")
+async def generate_cover_letter_content(
+    request: CoverLetterGenerateRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Генерирует текст сопроводительного письма на основе данных резюме
+    
+    Args:
+        request: Запрос на генерацию текста
+        current_user: Текущий пользователь
+        
+    Returns:
+        Сгенерированный текст
+    """
+    try:
+        db = get_db()
+        claude_client = ClaudeClient()
+        
+        # Проверяем валидность ObjectId
+        try:
+            resume_id = ObjectId(request.resume_id)
+        except:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Некорректный формат ID резюме"
+            )
+        
+        # Получаем резюме и проверяем права доступа
+        resume = await db.resumes.find_one({
+            "_id": resume_id,
+            "user_id": str(current_user.id)
+        })
+        
+        if not resume:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Резюме не найдено или доступ запрещен"
+            )
+        
+        # Проверяем, что content_type валидный
+        if request.content_type not in ["introduction", "body_part_1", "body_part_2", "conclusion"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Некорректный тип контента"
+            )
+        
+        # Извлекаем данные кандидата из резюме, исключая служебные поля
+        candidate_data = {
+            k: v for k, v in resume.items() 
+            if k not in ["_id", "user_id", "filename", "file_id", "status", "created_at", "updated_at"]
+        }
+        
+        # Генерируем текст через Claude
+        generated_text = await claude_client.generate_cover_letter_content(
+            candidate_data=candidate_data,
+            prompt=request.prompt,
+            content_type=request.content_type
+        )
+        
+        return {"text": generated_text}
         
     except HTTPException:
         raise

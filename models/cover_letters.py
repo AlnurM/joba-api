@@ -15,6 +15,14 @@ class CoverLetterContent(BaseModel):
     body_part_2: str
     conclusion: str
 
+class CoverLetterGenerateRequest(BaseModel):
+    """Модель для запроса генерации текста сопроводительного письма"""
+    resume_id: str
+    prompt: str
+    content_type: str = Field(
+        description="Тип контента: introduction, body_part_1, body_part_2, conclusion"
+    )
+
 class CoverLetterCreate(BaseModel):
     content: CoverLetterContent
     name: str

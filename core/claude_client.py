@@ -253,3 +253,103 @@ class ClaudeClient:
                 status_code=500,
                 detail=f"Ошибка при анализе файла: {str(e)}"
             )
+
+    async def generate_cover_letter_content(
+        self,
+        candidate_data: Dict[str, Any],
+        prompt: str,
+        content_type: str
+    ) -> str:
+        """
+        Generates cover letter text based on candidate data
+        
+        Args:
+            candidate_data: Candidate data from resume
+            prompt: User prompt
+            content_type: Content type (introduction, body_part_1, body_part_2, conclusion)
+            
+        Returns:
+            Generated text
+        """
+        start_time = time.time()
+        try:
+            system_prompt = f"""You are an expert in writing cover letters.
+                Candidate data:
+                {json.dumps(candidate_data, ensure_ascii=False, indent=2)}
+
+                Content type: {content_type}
+
+                User prompt: {prompt}
+
+                Important instructions:
+                1. Use placeholders in the format {{placeholder_key}} for places where job description data will be inserted (there have to be double brackets)
+                2. The text should be:
+                - Professional and formal
+                - Match the candidate's data
+                - Consider the user prompt
+                - Be unique and personalized
+                - Avoid clichés and generic phrases
+                3. Generate the text in the same language as the resume content
+                4. For each content type:
+                - Introduction: Start with an appropriate greeting and briefly introduce yourself
+                - Body Part 1: Highlight your skills, experience, and achievements (should not contain introduction manner)
+                - Body Part 2: Explain your interest in the company and how you match their needs (should not contain introduction manner)
+                - Conclusion: Summarize your fit and express your desire to discuss further
+                5. Use only the placeholders specified in the instructions for each content type
+                6. Return ONLY the generated text without any additional comments, explanations, or notes
+                """
+
+            async with httpx.AsyncClient(
+                timeout=self.timeout,
+                limits=self.limits,
+                http2=True
+            ) as client:
+                logger.info(f"Sending request to Claude API for generating {content_type}")
+                response = await client.post(
+                    f"{self.base_url}/messages",
+                    headers=self.headers,
+                    json={
+                        "model": "claude-3-7-sonnet-20250219",
+                        "max_tokens": 4000,
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": system_prompt
+                            }
+                        ]
+                    }
+                )
+                
+                elapsed_time = time.time() - start_time
+                logger.info(f"Claude API request completed in {elapsed_time:.2f} seconds")
+                
+                if response.status_code != 200:
+                    logger.error(f"Claude API error (HTTP {response.status_code}): {response.text}")
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Error generating text: {response.text}"
+                    )
+                
+                result = response.json()
+                generated_text = result.get("content", [{}])[0].get("text", "")
+                
+                if not generated_text:
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Failed to generate text"
+                    )
+                
+                return generated_text
+                
+        except httpx.TimeoutException as e:
+            logger.error(f"Timeout while requesting Claude API: {str(e)}")
+            raise HTTPException(
+                status_code=504,
+                detail="API request timeout"
+            )
+        except Exception as e:
+            logger.error(f"Error while requesting Claude API: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error generating text: {str(e)}"
+            )
