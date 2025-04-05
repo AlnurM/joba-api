@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status, Response, Form
-from models import Resume, ResumeCreate, User
+from models import Resume, ResumeCreate, User, ResumeStatusUpdate
 from models.resumes import ResumeStatus
 from core.auth import get_current_user
 from core.storage import save_file_content, get_file, is_allowed_file, ALLOWED_EXTENSIONS
@@ -43,7 +43,7 @@ async def get_resumes_by_user(
             "user_id": resume["user_id"],
             "filename": resume["filename"],
             "file_id": resume.get("file_id", ""),
-            "status": resume.get("status", ResumeStatus.ACTIVE),
+            "status": resume.get("status", ResumeStatus.ARCHIVED),
             "created_at": resume.get("created_at", datetime.utcnow())
         }
         processed_resumes.append(resume_dict)
@@ -100,7 +100,7 @@ async def upload_resume(
             "user_id": str(current_user.id),
             "filename": file.filename,
             "file_id": file_id,
-            "status": ResumeStatus.ACTIVE,
+            "status": ResumeStatus.ARCHIVED,
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
         }
@@ -296,4 +296,73 @@ async def delete_resume(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Ошибка при удалении резюме: {str(e)}"
+        )
+
+@router.patch("/{resume_id}/status", status_code=status.HTTP_200_OK)
+async def update_resume_status(
+    resume_id: str,
+    status_update: ResumeStatusUpdate,
+    current_user: User = Depends(get_current_user),
+    db = Depends(get_db)
+):
+    """
+    Изменяет статус резюме
+    
+    Args:
+        resume_id: ID резюме
+        status_update: Новый статус
+        current_user: Текущий пользователь
+        db: Подключение к базе данных
+        
+    Returns:
+        Обновленное резюме
+    """
+    try:
+        # Проверяем валидность ObjectId
+        try:
+            object_id = ObjectId(resume_id)
+        except:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Некорректный формат ID резюме"
+            )
+        
+        # Проверяем, что резюме существует и принадлежит текущему пользователю
+        resume = await db.resumes.find_one({
+            "_id": object_id,
+            "user_id": str(current_user.id)
+        })
+        
+        if not resume:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Резюме не найдено или доступ запрещен"
+            )
+        
+        # Обновляем статус
+        result = await db.resumes.update_one(
+            {"_id": object_id},
+            {"$set": {"status": status_update.status}}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Резюме не обновлено"
+            )
+        
+        # Получаем обновленное резюме
+        updated_resume = await db.resumes.find_one({"_id": object_id})
+        updated_resume["id"] = str(updated_resume["_id"])
+        
+        logger.info(f"Статус резюме успешно обновлен: {resume_id}")
+        return Resume(**updated_resume)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка при обновлении статуса резюме: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка при обновлении статуса резюме: {str(e)}"
         ) 

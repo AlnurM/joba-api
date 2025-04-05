@@ -8,11 +8,15 @@ class ResumeStatus(str, Enum):
     ARCHIVED = "archived"
     DELETED = "deleted"
 
+class ResumeStatusUpdate(BaseModel):
+    """Модель для обновления статуса резюме"""
+    status: ResumeStatus
+
 class ResumeBase(BaseModel):
     """Базовая модель резюме"""
     filename: str
     file_id: str  # ID файла в GridFS
-    status: ResumeStatus = ResumeStatus.ACTIVE
+    status: ResumeStatus = ResumeStatus.ARCHIVED
 
 class ResumeCreate(ResumeBase):
     """Модель для создания нового резюме"""
