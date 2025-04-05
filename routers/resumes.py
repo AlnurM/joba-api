@@ -28,20 +28,11 @@ async def get_resumes_by_user(
     skip = (page - 1) * per_page
     db = get_db()
     
-    # Преобразуем user_id в ObjectId
-    try:
-        user_object_id = ObjectId(user_id)
-    except:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Некорректный формат ID пользователя"
-        )
-    
     # Получаем общее количество документов
-    total = await db.resumes.count_documents({"user_id": user_object_id})
+    total = await db.resumes.count_documents({"user_id": str(user_id)})
     
     # Получаем документы с пагинацией и сортировкой по дате создания (от новых к старым)
-    cursor = db.resumes.find({"user_id": user_object_id}).sort("created_at", -1).skip(skip).limit(per_page)
+    cursor = db.resumes.find({"user_id": str(user_id)}).sort("created_at", -1).skip(skip).limit(per_page)
     resumes = await cursor.to_list(length=per_page)
     
     # Преобразуем ObjectId в строки и создаем словари для каждого резюме
