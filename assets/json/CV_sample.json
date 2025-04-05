@@ -9,7 +9,8 @@
     "source": {
       "type": "pdf/docx/linkedin/json",
       "filename": "john_doe_cv.pdf",
-      "uploaded_at": "2024-03-25T14:30:00Z"
+      "uploaded_at": "2024-03-25T14:30:00Z",
+      "file_size": 1234567890
     },
     "extracted_at": "2024-03-25T14:32:15Z"
   },
@@ -49,6 +50,7 @@
         }
       ]
     },
+    "summary": "Experienced software engineer with a passion for building scalable and efficient systems. Proficient in Python, Docker, and Kubernetes. Strong problem-solving skills and a commitment to delivering high-quality code.",
     "education": [
       {
         "institution": "Harvard University",
