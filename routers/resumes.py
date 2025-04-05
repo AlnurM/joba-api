@@ -23,7 +23,7 @@ async def get_resumes_by_user(
 ) -> Dict[str, Any]:
     """
     Получение резюме пользователя с пагинацией.
-    Сортировка по дате создания - от недавнего к старому.
+    Сортировка по статусу (активные первыми) и дате создания (от недавнего к старому).
     """
     skip = (page - 1) * per_page
     db = get_db()
@@ -31,8 +31,13 @@ async def get_resumes_by_user(
     # Получаем общее количество документов
     total = await db.resumes.count_documents({"user_id": str(user_id)})
     
-    # Получаем документы с пагинацией и сортировкой по дате создания (от новых к старым)
-    cursor = db.resumes.find({"user_id": str(user_id)}).sort("created_at", -1).skip(skip).limit(per_page)
+    # Получаем документы с пагинацией и сортировкой:
+    # 1. По статусу (активные первыми)
+    # 2. По дате создания (от новых к старым)
+    cursor = db.resumes.find({"user_id": str(user_id)}).sort([
+        ("status", 1),  # 1 для ascending, чтобы "active" было первым (т.к. active < archived в алфавитном порядке)
+        ("created_at", -1)  # -1 для descending, чтобы новые были первыми
+    ]).skip(skip).limit(per_page)
     resumes = await cursor.to_list(length=per_page)
     
     # Преобразуем ObjectId в строки и создаем словари для каждого резюме
