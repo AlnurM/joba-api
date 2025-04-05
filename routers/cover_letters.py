@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Header
 from typing import List, Optional
-from models.cover_letters import CoverLetter, CoverLetterCreate
+from models.cover_letters import CoverLetter, CoverLetterCreate, CoverLetterStatus, CoverLetterStatusUpdate
 from core.auth import get_current_user
 from models.users import User
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -24,18 +24,28 @@ async def get_cover_letters_by_user(
     db = get_db()
     
     # Получаем общее количество документов
-    total = await db.cover_letters.count_documents({"userId": user_id})
+    total = await db.cover_letters.count_documents({"user_id": user_id})
     
     # Получаем документы с пагинацией
-    cursor = db.cover_letters.find({"userId": user_id}).skip(skip).limit(per_page)
+    cursor = db.cover_letters.find({"user_id": user_id}).sort("created_at", -1).skip(skip).limit(per_page)
     cover_letters = await cursor.to_list(length=per_page)
     
     # Преобразуем ObjectId в строки
+    processed_letters = []
     for letter in cover_letters:
-        letter["_id"] = str(letter["_id"])
+        letter_dict = {
+            "id": str(letter["_id"]),
+            "user_id": letter["user_id"],
+            "name": letter["name"],
+            "content": letter["content"],
+            "status": letter.get("status", CoverLetterStatus.ARCHIVED),
+            "created_at": letter.get("created_at", datetime.utcnow()),
+            "updated_at": letter.get("updated_at", datetime.utcnow())
+        }
+        processed_letters.append(letter_dict)
     
     return {
-        "list": cover_letters,
+        "list": processed_letters,
         "pagination": {
             "total": total,
             "currentPage": page,
@@ -65,7 +75,7 @@ async def list_cover_letters(
             detail=str(e)
         )
 
-@router.post("/create", response_model=CoverLetter)
+@router.post("", response_model=CoverLetter)
 async def create_cover_letter(
     cover_letter: CoverLetterCreate,
     current_user: User = Depends(get_current_user)
@@ -76,20 +86,23 @@ async def create_cover_letter(
     try:
         db = get_db()
         
-        # Создаем документ
-        cover_letter_dict = cover_letter.dict()
-        cover_letter_dict["userId"] = str(current_user.id)
-        cover_letter_dict["createdAt"] = datetime.utcnow()
-        cover_letter_dict["updatedAt"] = datetime.utcnow()
+        # Добавляем системные поля
+        cover_letter_dict = cover_letter.model_dump()
+        cover_letter_dict.update({
+            "user_id": str(current_user.id),
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        })
         
-        # Вставляем документ в базу данных
+        # Сохраняем в базу данных
         result = await db.cover_letters.insert_one(cover_letter_dict)
         
         # Получаем созданный документ
         created_letter = await db.cover_letters.find_one({"_id": result.inserted_id})
-        created_letter["_id"] = str(created_letter["_id"])
+        created_letter["id"] = str(created_letter.pop("_id"))
         
         return CoverLetter(**created_letter)
+        
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -120,7 +133,7 @@ async def get_cover_letter(
         # Ищем документ с проверкой принадлежности пользователю
         cover_letter = await db.cover_letters.find_one({
             "_id": object_id,
-            "userId": str(current_user.id)
+            "user_id": str(current_user.id)
         })
         
         if not cover_letter:
@@ -130,9 +143,124 @@ async def get_cover_letter(
             )
         
         # Преобразуем ObjectId в строку
-        cover_letter["_id"] = str(cover_letter["_id"])
+        cover_letter["id"] = str(cover_letter.pop("_id"))
         
         return CoverLetter(**cover_letter)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.patch("/{cover_letter_id}/status", response_model=CoverLetter)
+async def update_cover_letter_status(
+    cover_letter_id: str,
+    status_update: CoverLetterStatusUpdate,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Обновление статуса cover letter
+    """
+    try:
+        db = get_db()
+        
+        # Проверяем валидность ObjectId
+        try:
+            object_id = ObjectId(cover_letter_id)
+        except:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid cover letter ID format"
+            )
+        
+        # Проверяем существование документа и права доступа
+        cover_letter = await db.cover_letters.find_one({
+            "_id": object_id,
+            "user_id": str(current_user.id)
+        })
+        
+        if not cover_letter:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Cover letter not found or access denied"
+            )
+        
+        # Обновляем статус
+        result = await db.cover_letters.update_one(
+            {"_id": object_id},
+            {
+                "$set": {
+                    "status": status_update.status,
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Cover letter not updated"
+            )
+        
+        # Получаем обновленный документ
+        updated_letter = await db.cover_letters.find_one({"_id": object_id})
+        updated_letter["id"] = str(updated_letter.pop("_id"))
+        
+        return CoverLetter(**updated_letter)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.delete("/{cover_letter_id}", status_code=status.HTTP_200_OK)
+async def delete_cover_letter(
+    cover_letter_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Удаление cover letter
+    """
+    try:
+        db = get_db()
+        
+        # Проверяем валидность ObjectId
+        try:
+            object_id = ObjectId(cover_letter_id)
+        except:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid cover letter ID format"
+            )
+        
+        # Проверяем существование документа и права доступа
+        cover_letter = await db.cover_letters.find_one({
+            "_id": object_id,
+            "user_id": str(current_user.id)
+        })
+        
+        if not cover_letter:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Cover letter not found or access denied"
+            )
+        
+        # Удаляем документ
+        result = await db.cover_letters.delete_one({"_id": object_id})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Cover letter not deleted"
+            )
+        
+        return {"message": "Cover letter successfully deleted", "id": cover_letter_id}
+        
     except HTTPException:
         raise
     except Exception as e:

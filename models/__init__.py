@@ -3,7 +3,10 @@ from models.auth import (
     UserLogin, Token, TokenData,
     AvailabilityCheck, AvailabilityResponse
 )
-from models.cover_letters import CoverLetter, CoverLetterContent
+from models.cover_letters import (
+    CoverLetter, CoverLetterContent, CoverLetterCreate,
+    CoverLetterStatus, CoverLetterStatusUpdate
+)
 from models.resumes import Resume, ResumeCreate, ResumeStatus, ResumeStatusUpdate
 
 __all__ = [
@@ -23,6 +26,9 @@ __all__ = [
     # Cover Letters models
     "CoverLetter",
     "CoverLetterContent",
+    "CoverLetterCreate",
+    "CoverLetterStatus",
+    "CoverLetterStatusUpdate",
     
     # Resume models
     "Resume",

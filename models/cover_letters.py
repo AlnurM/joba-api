@@ -2,6 +2,12 @@ from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 from bson import ObjectId
+from enum import Enum
+
+class CoverLetterStatus(str, Enum):
+    ACTIVE = "active"
+    ARCHIVED = "archived"
+    DELETED = "deleted"
 
 class CoverLetterContent(BaseModel):
     introduction: str
@@ -12,13 +18,23 @@ class CoverLetterContent(BaseModel):
 class CoverLetterCreate(BaseModel):
     content: CoverLetterContent
     name: str
-    active: bool = False
+    status: CoverLetterStatus = CoverLetterStatus.ARCHIVED
 
-class CoverLetter(CoverLetterCreate):
-    id: Optional[str] = Field(alias="_id")
-    userId: str
-    createdAt: datetime = Field(default_factory=datetime.utcnow)
-    updatedAt: datetime = Field(default_factory=datetime.utcnow)
+class CoverLetterStatusUpdate(BaseModel):
+    """Модель для обновления статуса сопроводительного письма"""
+    status: CoverLetterStatus
+
+class CoverLetter(BaseModel):
+    id: str
+    user_id: str
+    name: str
+    content: CoverLetterContent
+    status: CoverLetterStatus = CoverLetterStatus.ARCHIVED
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        from_attributes = True
 
     class Config:
         json_encoders = {
