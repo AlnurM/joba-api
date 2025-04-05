@@ -7,7 +7,7 @@ from core.database import get_db
 from core.resume_processor import process_resume
 from datetime import datetime
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from bson import ObjectId
 import os
 import json
@@ -19,22 +19,34 @@ logger = logging.getLogger(__name__)
 async def get_resumes_by_user(
     user_id: str,
     page: int = 1,
-    per_page: int = 10
+    per_page: int = 10,
+    status: Optional[ResumeStatus] = None
 ) -> Dict[str, Any]:
     """
     Получение резюме пользователя с пагинацией.
     Сортировка по статусу (активные первыми) и дате создания (от недавнего к старому).
+    
+    Args:
+        user_id: ID пользователя
+        page: Номер страницы
+        per_page: Количество элементов на странице
+        status: Опциональный фильтр по статусу резюме
     """
     skip = (page - 1) * per_page
     db = get_db()
     
+    # Формируем условия поиска
+    query = {"user_id": str(user_id)}
+    if status is not None:
+        query["status"] = status
+    
     # Получаем общее количество документов
-    total = await db.resumes.count_documents({"user_id": str(user_id)})
+    total = await db.resumes.count_documents(query)
     
     # Получаем документы с пагинацией и сортировкой:
     # 1. По статусу (активные первыми)
     # 2. По дате создания (от новых к старым)
-    cursor = db.resumes.find({"user_id": str(user_id)}).sort([
+    cursor = db.resumes.find(query).sort([
         ("status", 1),  # 1 для ascending, чтобы "active" было первым (т.к. active < archived в алфавитном порядке)
         ("created_at", -1)  # -1 для descending, чтобы новые были первыми
     ]).skip(skip).limit(per_page)
@@ -131,16 +143,18 @@ async def upload_resume(
 async def list_resumes(
     page: int = 1,
     per_page: int = 10,
+    status: Optional[ResumeStatus] = None,
     current_user: User = Depends(get_current_user)
 ):
     """
-    Получение списка резюме текущего пользователя с пагинацией
+    Получение списка резюме текущего пользователя с пагинацией и фильтрацией по статусу
     """
     try:
         return await get_resumes_by_user(
             user_id=str(current_user.id),
             page=page,
-            per_page=per_page
+            per_page=per_page,
+            status=status
         )
     except Exception as e:
         logger.error(f"Ошибка при получении списка резюме: {str(e)}")
