@@ -6,7 +6,7 @@ from fastapi import UploadFile, HTTPException
 from typing import Optional, Tuple, List
 import logging
 from motor.motor_asyncio import AsyncIOMotorGridFSBucket
-from core.database import db
+from core.database import db, get_db
 from bson import ObjectId
 
 logger = logging.getLogger(__name__)

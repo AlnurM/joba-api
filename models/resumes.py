@@ -17,7 +17,6 @@ class ResumeStatusUpdate(BaseModel):
 
 class ResumeBase(BaseModel):
     """Base resume model"""
-    title: str
     file_id: str  # File ID in GridFS
     status: ResumeStatus = ResumeStatus.DRAFT
     created_at: datetime = Field(default_factory=datetime.utcnow)
