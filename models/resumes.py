@@ -7,7 +7,6 @@ from datetime import datetime
 
 class ResumeStatus(str, Enum):
     """Resume status options"""
-    DRAFT = "draft"
     ACTIVE = "active"
     ARCHIVED = "archived"
 
@@ -18,7 +17,7 @@ class ResumeStatusUpdate(BaseModel):
 class ResumeBase(BaseModel):
     """Base resume model"""
     file_id: str  # File ID in GridFS
-    status: ResumeStatus = ResumeStatus.DRAFT
+    status: ResumeStatus = ResumeStatus.ARCHIVED
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

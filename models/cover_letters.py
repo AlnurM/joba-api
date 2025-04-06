@@ -9,7 +9,6 @@ from bson import ObjectId
 class CoverLetterStatus(str, Enum):
     ACTIVE = "active"
     ARCHIVED = "archived"
-    DELETED = "deleted"
 
 class CoverLetterContent(BaseModel):
     introduction: str

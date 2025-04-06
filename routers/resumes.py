@@ -380,7 +380,8 @@ async def update_resume_status(
         
         # Get updated resume
         updated_resume = await db.resumes.find_one({"_id": object_id})
-        updated_resume["id"] = str(updated_resume["_id"])
+        # Используем _id вместо id для правильной работы с моделью Pydantic
+        updated_resume["_id"] = str(updated_resume["_id"])
         
         return Resume(**updated_resume)
         
