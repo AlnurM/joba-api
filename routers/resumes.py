@@ -5,6 +5,7 @@ from core.auth import get_current_user
 from core.storage import save_file_content, get_file, is_allowed_file, ALLOWED_EXTENSIONS
 from core.database import get_db
 from core.resume_processor import process_resume
+from core.claude_client import ClaudeClient
 from datetime import datetime
 import logging
 from typing import List, Dict, Any, Optional
@@ -392,4 +393,73 @@ async def update_resume_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error updating resume status: {str(e)}"
+        )
+
+@router.get("/{resume_id}/scoring", response_model=Resume)
+async def score_resume(
+    resume_id: str,
+    current_user: User = Depends(get_current_user),
+    db = Depends(get_db)
+):
+    """
+    Analyze and score a resume based on multiple criteria.
+    
+    Args:
+        resume_id: ID of the resume to analyze
+        current_user: Current authenticated user
+        db: Database connection
+        
+    Returns:
+        Resume with scoring analysis
+    """
+    try:
+        # Validate ObjectId
+        try:
+            object_id = ObjectId(resume_id)
+        except:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid resume ID format"
+            )
+        
+        claude_client = ClaudeClient()
+
+        # Get resume from database
+        resume = await db.resumes.find_one({
+            "_id": object_id,
+            "user_id": str(current_user.id)
+        })
+        
+        if not resume:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Resume not found or access denied"
+            )
+        
+        # Get candidate data from resume
+        candidate_data = resume.get('candidate', {})
+        if not candidate_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No candidate data found in resume"
+            )
+        
+        # Analyze resume using Claude
+        scoring_result = await claude_client.analyze_resume(candidate_data)
+        
+        # Update resume with scoring results
+        resume.update(scoring_result)
+        
+        # Convert ObjectId to string for response
+        resume['_id'] = str(resume['_id'])
+        
+        return Resume(**resume)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error scoring resume: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error scoring resume: {str(e)}"
         ) 

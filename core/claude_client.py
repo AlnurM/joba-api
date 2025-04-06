@@ -446,4 +446,97 @@ class ClaudeClient:
             raise HTTPException(
                 status_code=500,
                 detail=f"Error rendering text: {str(e)}"
+            )
+
+    async def analyze_resume(self, candidate_data: dict) -> dict:
+        """
+        Analyze resume using Claude and return structured scoring results.
+        
+        Args:
+            candidate_data: Candidate data from MongoDB resume document
+            
+        Returns:
+            Structured scoring results
+        """
+        prompt = f"""
+        Please analyze this resume data and provide a detailed scoring based on the following exact criteria:
+
+        1. Presence of key sections (30%):
+        - Check if resume contains all required sections: Summary, Experience, Skills, Education
+        - Each missing section reduces the score proportionally
+        - Maximum score: 30%
+
+        2. Work experience quality using STAR method (40%):
+        - Evaluate how well each work experience is described using Situation, Task, Action, Result
+        - Check for specific achievements and measurable results
+        - Maximum score: 40%
+
+        3. Education and certifications relevance (10%):
+        - Evaluate relevance of education to the target position
+        - Check for additional relevant certifications and courses
+        - Maximum score: 10%
+
+        4. Timeline consistency (10%):
+        - Check for any date contradictions in work history
+        - Identify employment gaps longer than 2 months
+        - Maximum score: 10%
+
+        5. Language and grammar (10%):
+        - Check for grammatical errors
+        - Evaluate overall language quality, conciseness, and formal tone
+        - Maximum score: 10%
+
+        Resume Data:
+        {json.dumps(candidate_data, indent=2, ensure_ascii=False)}
+
+        Please provide your analysis in the following JSON format:
+        {{
+            "scoring": {{
+                "total_score": <total_score>,
+                "sections_score": <score_0_to_30>,
+                "experience_score": <score_0_to_40>,
+                "education_score": <score_0_to_10>,
+                "timeline_score": <score_0_to_10>,
+                "language_score": <score_0_to_10>
+            }},
+            "feedback": {{
+                "sections": "<detailed_feedback_about_sections>",
+                "experience": "<detailed_feedback_about_experience>",
+                "education": "<detailed_feedback_about_education>",
+                "timeline": "<detailed_feedback_about_timeline>",
+                "language": "<detailed_feedback_about_language>"
+            }}
+        }}
+
+        Important:
+        - Each score must be within its specified range
+        - Total score should be the sum of all individual scores
+        - Provide specific, actionable feedback for each category
+        """
+        
+        try:
+            # Call Claude API with the prompt
+            response = await self.analyze_text(prompt, "Analyze this resume and provide a detailed scoring based on the following criteria:")
+            
+            # Extract text content from response
+            content = response.get("content", [{}])[0].get("text", "")
+            if not content:
+                raise ValueError("Empty response from Claude API")
+            
+            # Find JSON in response
+            start = content.find("{")
+            end = content.rfind("}") + 1
+            if start == -1 or end == 0:
+                raise ValueError("Could not find JSON in response")
+            
+            json_str = content[start:end]
+            
+            # Parse JSON and return structured data
+            return json.loads(json_str)
+            
+        except Exception as e:
+            logger.error(f"Error analyzing resume with Claude: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to analyze resume"
             ) 

@@ -1,7 +1,7 @@
 """Models for resumes"""
 
 from enum import Enum
-from typing import Optional
+from typing import Optional, Dict, Any
 from pydantic import BaseModel, Field
 from datetime import datetime
 
@@ -25,6 +25,23 @@ class ResumeCreate(ResumeBase):
     """Model for creating a new resume"""
     pass
 
-class Resume(ResumeBase):
-    """Resume model for API responses"""
-    id: str = Field(..., alias="_id") 
+class Resume(BaseModel):
+    """Resume model with scoring fields"""
+    id: str = Field(..., alias="_id")
+    user_id: str
+    filename: str
+    file_id: Optional[str] = None
+    status: ResumeStatus = ResumeStatus.ARCHIVED
+    created_at: datetime
+    updated_at: datetime
+    candidate: Dict[str, Any]
+    
+    # Scoring fields
+    scoring: Optional[Dict[str, float]] = Field(None, description="Resume scoring results")
+    feedback: Optional[Dict[str, str]] = Field(None, description="Detailed feedback for each scoring category")
+    
+    class Config:
+        allow_population_by_field_name = True
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        } 
