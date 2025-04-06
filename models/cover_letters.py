@@ -45,7 +45,7 @@ class CoverLetterStatusUpdate(BaseModel):
 
 class CoverLetter(BaseModel):
     """Cover letter model for API responses"""
-    id: str = Field(..., alias="_id")
+    id: str
     user_id: str
     name: str
     content: CoverLetterContent
