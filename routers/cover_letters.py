@@ -3,7 +3,7 @@ from typing import List, Optional
 from models.cover_letters import (
     CoverLetter, CoverLetterCreate, CoverLetterStatus,
     CoverLetterStatusUpdate, CoverLetterGenerateRequest,
-    CoverLetterRenderRequest
+    CoverLetterRenderRequest, CoverLetterContent, CoverLetterUpdate
 )
 from models.resumes import Resume
 from core.auth import get_current_user
@@ -373,6 +373,71 @@ async def render_cover_letter(
         )
         
         return {"text": rendered_text}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.patch("/{cover_letter_id}", response_model=CoverLetter)
+async def update_cover_letter(
+    cover_letter_id: str,
+    update_data: CoverLetterUpdate,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Update cover letter content and name
+    """
+    try:
+        db = get_db()
+        
+        # Check ObjectId validity
+        try:
+            object_id = ObjectId(cover_letter_id)
+        except:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid cover letter ID format"
+            )
+        
+        # Check document existence and access rights
+        cover_letter = await db.cover_letters.find_one({
+            "_id": object_id,
+            "user_id": str(current_user.id)
+        })
+        
+        if not cover_letter:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Cover letter not found or access denied"
+            )
+        
+        # Update document
+        result = await db.cover_letters.update_one(
+            {"_id": object_id},
+            {
+                "$set": {
+                    "content": update_data.content.model_dump(),
+                    "name": update_data.name,
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Cover letter not updated"
+            )
+        
+        # Get updated document
+        updated_letter = await db.cover_letters.find_one({"_id": object_id})
+        updated_letter["id"] = str(updated_letter.pop("_id"))
+        
+        return CoverLetter(**updated_letter)
         
     except HTTPException:
         raise

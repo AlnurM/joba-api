@@ -35,6 +35,11 @@ class CoverLetterCreate(BaseModel):
     name: str
     status: CoverLetterStatus = CoverLetterStatus.ARCHIVED
 
+class CoverLetterUpdate(BaseModel):
+    """Model for updating cover letter content and name"""
+    content: CoverLetterContent
+    name: str
+
 class CoverLetterStatusUpdate(BaseModel):
     """Model for updating cover letter status"""
     status: CoverLetterStatus

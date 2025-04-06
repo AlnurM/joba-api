@@ -5,7 +5,7 @@ from models.auth import (
 )
 from models.cover_letters import (
     CoverLetter, CoverLetterContent, CoverLetterCreate,
-    CoverLetterStatus, CoverLetterStatusUpdate
+    CoverLetterStatus, CoverLetterStatusUpdate, CoverLetterUpdate
 )
 from models.resumes import Resume, ResumeCreate, ResumeStatus, ResumeStatusUpdate
 
@@ -29,6 +29,7 @@ __all__ = [
     "CoverLetterCreate",
     "CoverLetterStatus",
     "CoverLetterStatusUpdate",
+    "CoverLetterUpdate",
     
     # Resume models
     "Resume",
