@@ -7,7 +7,7 @@ from models.cover_letters import (
     CoverLetter, CoverLetterContent, CoverLetterCreate,
     CoverLetterStatus, CoverLetterStatusUpdate, CoverLetterUpdate
 )
-from models.resumes import Resume, ResumeCreate, ResumeStatus, ResumeStatusUpdate
+from models.resumes import Resume, ResumeCreate, ResumeStatus, ResumeStatusUpdate, ResumeScoringRequest
 
 __all__ = [
     # User models
@@ -35,5 +35,6 @@ __all__ = [
     "Resume",
     "ResumeCreate",
     "ResumeStatus",
-    "ResumeStatusUpdate"
+    "ResumeStatusUpdate",
+    "ResumeScoringRequest"
 ] 
