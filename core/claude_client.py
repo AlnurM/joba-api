@@ -282,6 +282,7 @@ class ClaudeClient:
                 User prompt: {prompt}
 
                 Important instructions:
+                0: Do not ever leave your comments in the generated text
                 1. Use placeholders in the format {{placeholder_key}} for places where job description data will be inserted (there have to be double brackets)
                 2. The text should be:
                 - Professional and formal
@@ -291,11 +292,24 @@ class ClaudeClient:
                 - Avoid clichés and generic phrases
                 3. Generate the text in the same language as the resume content
                 4. For each content type:
-                - Introduction: Start with an appropriate greeting and briefly introduce yourself [maximum: 1 paragraph]
-                - Body Part 1: Highlight your skills, experience, and achievements (should not contain introduction manner) [maximum: 2 paragraphs]
-                - Body Part 2: Explain your interest in the company and how you match their needs (should not contain introduction manner) [maximum: 1 paragraph]
-                - Conclusion: Summarize your fit and express your desire to discuss further [maximum: 1 paragraph]
-                5. Use only the placeholders specified in the instructions for each content type
+                - Introduction:
+                    1. Start with an appropriate greeting and briefly introduce yourself
+                    2. Maximum: 1 paragraph
+                - Body Part 1: 
+                    1. Highlight your skills, experience, and achievements
+                    2. Do not contain introduction manner
+                    3. Do not use the same words as in the introduction
+                    4. Bullet points preferred
+                    5. Maximum: 2 paragraphs
+                - Body Part 2: 
+                    1. Explain your interest in the company and how you match their needs
+                    2. Do not contain introduction manner
+                    3. Do not use the same words as in the introduction
+                    5. Maximum: 1 paragraph
+                - Conclusion: 
+                    1. Summarize your fit and express your desire to discuss further
+                    2. Maximum: 1 paragraph
+                5. Check the content type given and check if it matches the requirements above
                 6. Return ONLY the generated text without any additional comments, explanations, or notes
                 """
 
