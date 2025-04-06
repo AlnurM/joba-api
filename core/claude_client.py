@@ -309,7 +309,7 @@ class ClaudeClient:
                 - Conclusion: 
                     1. Summarize your fit and express your desire to discuss further
                     2. Maximum: 1 paragraph
-                5. Check the content type given and check if it matches the requirements above
+                5. Check the content type given and check if it matches the requirements above and check if every placeholder wrapper with double brackets
                 6. Return ONLY the generated text without any additional comments, explanations, or notes
                 """
 
