@@ -291,10 +291,10 @@ class ClaudeClient:
                 - Avoid clichés and generic phrases
                 3. Generate the text in the same language as the resume content
                 4. For each content type:
-                - Introduction: Start with an appropriate greeting and briefly introduce yourself
-                - Body Part 1: Highlight your skills, experience, and achievements (should not contain introduction manner)
-                - Body Part 2: Explain your interest in the company and how you match their needs (should not contain introduction manner)
-                - Conclusion: Summarize your fit and express your desire to discuss further
+                - Introduction: Start with an appropriate greeting and briefly introduce yourself [maximum: 1 paragraph]
+                - Body Part 1: Highlight your skills, experience, and achievements (should not contain introduction manner) [maximum: 2 paragraphs]
+                - Body Part 2: Explain your interest in the company and how you match their needs (should not contain introduction manner) [maximum: 1 paragraph]
+                - Conclusion: Summarize your fit and express your desire to discuss further [maximum: 1 paragraph]
                 5. Use only the placeholders specified in the instructions for each content type
                 6. Return ONLY the generated text without any additional comments, explanations, or notes
                 """
