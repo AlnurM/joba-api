@@ -395,9 +395,9 @@ async def update_resume_status(
             detail=f"Error updating resume status: {str(e)}"
         )
 
-@router.get("/{resume_id}/scoring", response_model=Resume)
+@router.post("/scoring", response_model=Resume)
 async def score_resume(
-    resume_id: str,
+    request: ResumeScoringRequest,
     current_user: User = Depends(get_current_user),
     db = Depends(get_db)
 ):
@@ -405,7 +405,7 @@ async def score_resume(
     Analyze and score a resume based on multiple criteria.
     
     Args:
-        resume_id: ID of the resume to analyze
+        request: Request containing resume ID
         current_user: Current authenticated user
         db: Database connection
         
@@ -415,15 +415,13 @@ async def score_resume(
     try:
         # Validate ObjectId
         try:
-            object_id = ObjectId(resume_id)
+            object_id = ObjectId(request.resume_id)
         except:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid resume ID format"
             )
         
-        claude_client = ClaudeClient()
-
         # Get resume from database
         resume = await db.resumes.find_one({
             "_id": object_id,
@@ -445,6 +443,7 @@ async def score_resume(
             )
         
         # Analyze resume using Claude
+        claude_client = ClaudeClient()
         scoring_result = await claude_client.analyze_resume(candidate_data)
         
         # Update resume with scoring results

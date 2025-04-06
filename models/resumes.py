@@ -25,6 +25,10 @@ class ResumeCreate(ResumeBase):
     """Model for creating a new resume"""
     pass
 
+class ResumeScoringRequest(BaseModel):
+    """Request model for resume scoring"""
+    resume_id: str = Field(..., description="ID of the resume to score")
+
 class Resume(BaseModel):
     """Resume model with scoring fields"""
     id: str = Field(..., alias="_id")
