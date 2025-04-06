@@ -454,13 +454,31 @@ async def score_resume(
         claude_client = ClaudeClient()
         scoring_result = await claude_client.analyze_resume(candidate_data)
         
-        # Update resume with scoring results
-        resume.update(scoring_result)
+        # Update resume with scoring results in MongoDB
+        update_result = await db.resumes.update_one(
+            {"_id": object_id},
+            {
+                "$set": {
+                    "scoring": scoring_result.get("scoring", {}),
+                    "feedback": scoring_result.get("feedback", {}),
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
+        
+        if update_result.modified_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update resume with scoring results"
+            )
+        
+        # Get updated resume
+        updated_resume = await db.resumes.find_one({"_id": object_id})
         
         # Convert ObjectId to string for response
-        resume['_id'] = str(resume['_id'])
+        updated_resume['_id'] = str(updated_resume['_id'])
         
-        return Resume(**resume)
+        return Resume(**updated_resume)
         
     except HTTPException:
         raise
