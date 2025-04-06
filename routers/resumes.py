@@ -13,7 +13,7 @@ import os
 import json
 from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 
-router = APIRouter(prefix="/resumes", tags=["resumes"])
+router = APIRouter(tags=["resumes"])
 logger = logging.getLogger(__name__)
 
 async def get_resumes_by_user(

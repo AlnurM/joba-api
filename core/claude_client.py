@@ -216,6 +216,13 @@ class ClaudeClient:
                             detail=f"Error analyzing file: {response.text}"
                         )
                         
+                    except Exception as e:
+                        if attempt < 2:
+                            logger.warning(f"Attempt {attempt + 1} failed: {str(e)}")
+                            await asyncio.sleep(2 ** attempt)
+                            continue
+                        raise
+                        
                 elapsed_time = time.time() - start_time
                 logger.info(f"Claude API request completed in {elapsed_time:.2f} seconds")
                 
@@ -349,3 +356,94 @@ class ClaudeClient:
                 status_code=500,
                 detail=f"Error generating text: {str(e)}"
             )
+
+    async def render_cover_letter(
+        self,
+        job_description: str,
+        content: Dict[str, str]
+    ) -> str:
+        """
+        Renders cover letter by filling placeholders based on job description
+        
+        Args:
+            job_description: Full text of the job description
+            content: Cover letter content with placeholders
+            
+        Returns:
+            Rendered text with filled placeholders
+        """
+        start_time = time.time()
+        try:
+            system_prompt = f"""You are an expert in analyzing job descriptions and writing cover letters.
+                Job Description:
+                {job_description}
+
+                Cover Letter Content:
+                {json.dumps(content, ensure_ascii=False, indent=2)}
+
+                Important instructions:
+                1. Analyze the job description and extract key requirements, skills, and company information
+                2. For each section of the cover letter content:
+                   - Find all placeholders in the format {{placeholder_key}}
+                   - Replace them with relevant information from the job description
+                   - Ensure the text flows naturally and maintains professional tone
+                3. Return ONLY the rendered text with filled placeholders
+                4. Do not add any comments or explanations
+                5. Preserve the original structure and formatting of the content
+                6. Make sure all placeholders are replaced with meaningful content
+                """
+
+            async with httpx.AsyncClient(
+                timeout=self.timeout,
+                limits=self.limits,
+                http2=True
+            ) as client:
+                logger.info("Sending request to Claude API for rendering cover letter")
+                response = await client.post(
+                    f"{self.base_url}/messages",
+                    headers=self.headers,
+                    json={
+                        "model": "claude-3-7-sonnet-20250219",
+                        "max_tokens": 4000,
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": system_prompt
+                            }
+                        ]
+                    }
+                )
+                
+                elapsed_time = time.time() - start_time
+                logger.info(f"Claude API request completed in {elapsed_time:.2f} seconds")
+                
+                if response.status_code != 200:
+                    logger.error(f"Claude API error (HTTP {response.status_code}): {response.text}")
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Error rendering text: {response.text}"
+                    )
+                
+                result = response.json()
+                rendered_text = result.get("content", [{}])[0].get("text", "")
+                
+                if not rendered_text:
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Failed to render text"
+                    )
+                
+                return rendered_text
+                
+        except httpx.TimeoutException as e:
+            logger.error(f"Timeout while requesting Claude API: {str(e)}")
+            raise HTTPException(
+                status_code=504,
+                detail="API request timeout"
+            )
+        except Exception as e:
+            logger.error(f"Error while requesting Claude API: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error rendering text: {str(e)}"
+            ) 

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, status
-from models import User, UserCreate, UserLogin, Token, AvailabilityCheck, AvailabilityResponse
+from models import User, UserCreate
+from models.auth import SignInRequest, AccessToken, AvailabilityCheck, AvailabilityResponse
 from core.auth import (
     get_password_hash, verify_password, create_access_token,
     create_refresh_token, authenticate_user, get_current_user,
@@ -9,7 +10,7 @@ from core.auth import (
 import logging
 from datetime import timedelta
 
-router = APIRouter(prefix="/auth", tags=["authentication"])
+router = APIRouter(tags=["authentication"])
 logger = logging.getLogger(__name__)
 
 @router.post("/signup", response_model=User)
@@ -30,8 +31,8 @@ async def signup(user: UserCreate):
             detail="Error during signup"
         )
 
-@router.post("/signin", response_model=Token)
-async def signin(user_data: UserLogin):
+@router.post("/signin", response_model=AccessToken)
+async def signin(user_data: SignInRequest):
     """
     User login.
     Can use either email or username for login.
@@ -57,7 +58,7 @@ async def signin(user_data: UserLogin):
             detail="Error during signin"
         )
 
-@router.post("/refresh", response_model=Token)
+@router.post("/refresh", response_model=AccessToken)
 async def refresh_token(refresh_token: str):
     """
     Refresh access token using refresh token

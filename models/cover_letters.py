@@ -17,6 +17,11 @@ class CoverLetterContent(BaseModel):
     body_part_2: str
     conclusion: str
 
+class CoverLetterRenderRequest(BaseModel):
+    """Model for cover letter rendering request"""
+    job_description: str
+    content: CoverLetterContent
+
 class CoverLetterGenerateRequest(BaseModel):
     """Model for cover letter content generation request"""
     resume_id: str
@@ -35,7 +40,8 @@ class CoverLetterStatusUpdate(BaseModel):
     status: CoverLetterStatus
 
 class CoverLetter(BaseModel):
-    id: str
+    """Cover letter model for API responses"""
+    id: str = Field(..., alias="_id")
     user_id: str
     name: str
     content: CoverLetterContent
@@ -43,14 +49,8 @@ class CoverLetter(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-class CoverLetter(CoverLetterBase):
-    """Cover letter model for API responses"""
-    id: str = Field(..., alias="_id")
-
     class Config:
         from_attributes = True
-
-    class Config:
         json_encoders = {
             ObjectId: str,
             datetime: lambda dt: dt.isoformat()

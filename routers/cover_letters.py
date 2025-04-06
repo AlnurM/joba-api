@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, Header
 from typing import List, Optional
 from models.cover_letters import (
     CoverLetter, CoverLetterCreate, CoverLetterStatus,
-    CoverLetterStatusUpdate, CoverLetterGenerateRequest
+    CoverLetterStatusUpdate, CoverLetterGenerateRequest,
+    CoverLetterRenderRequest
 )
 from models.resumes import Resume
 from core.auth import get_current_user
@@ -15,7 +16,7 @@ from core.database import get_db
 from datetime import datetime
 from core.claude_client import ClaudeClient
 
-router = APIRouter(prefix="/cover-letters", tags=["cover-letters"])
+router = APIRouter(tags=["cover-letters"])
 
 async def get_cover_letters_by_user(
     user_id: str,
@@ -335,6 +336,43 @@ async def generate_cover_letter_content(
         )
         
         return {"text": generated_text}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.post("/render")
+async def render_cover_letter(
+    request: CoverLetterRenderRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Render cover letter by filling placeholders based on job description
+    
+    Args:
+        request: Render request with job description and content
+        current_user: Current user
+        
+    Returns:
+        Rendered text with filled placeholders
+    """
+    try:
+        claude_client = ClaudeClient()
+        
+        # Convert content to dict for processing
+        content_dict = request.content.model_dump()
+        
+        # Render text using Claude
+        rendered_text = await claude_client.render_cover_letter(
+            job_description=request.job_description,
+            content=content_dict
+        )
+        
+        return {"text": rendered_text}
         
     except HTTPException:
         raise

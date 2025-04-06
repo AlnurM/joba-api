@@ -1,6 +1,6 @@
 from models.users import UserBase, UserCreate, User, UserInDB
 from models.auth import (
-    UserLogin, Token, TokenData,
+    SignInRequest, AccessToken, TokenData,
     AvailabilityCheck, AvailabilityResponse
 )
 from models.cover_letters import (
@@ -17,8 +17,8 @@ __all__ = [
     "UserInDB",
     
     # Auth models
-    "UserLogin",
-    "Token",
+    "SignInRequest",
+    "AccessToken",
     "TokenData",
     "AvailabilityCheck",
     "AvailabilityResponse",

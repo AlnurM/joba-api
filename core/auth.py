@@ -4,7 +4,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 import os
 import logging
-from models import User, UserCreate, Token
+from models import User, UserCreate, AccessToken
 from core.database import get_db
 from bson.objectid import ObjectId
 from fastapi import HTTPException, status, Depends
@@ -110,8 +110,16 @@ async def authenticate_user(login: str, password: str) -> Optional[User]:
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
-        user["id"] = str(user["_id"])
-        return User(**user)
+        # Convert ObjectId to string for id and prepare user data
+        user_data = {
+            "id": str(user["_id"]),
+            "email": user["email"],
+            "username": user.get("username"),
+            "created_at": user.get("created_at", datetime.utcnow()),
+            "updated_at": user.get("updated_at", datetime.utcnow())
+        }
+        
+        return User(**user_data)
     except HTTPException:
         raise
     except Exception as e:
@@ -204,25 +212,25 @@ async def check_availability(email: Optional[str] = None, username: Optional[str
         username: Username to check
         
     Returns:
-        Dict[str, Any]: {"available": bool, "message": str}
+        Dict[str, Any]: {"is_available": bool, "message": str}
     """
     try:
         db = get_db()
         
         if email and await db.users.find_one({"email": email}):
             return {
-                "available": False,
+                "is_available": False,
                 "message": "Email already registered"
             }
         
         if username and await db.users.find_one({"username": username}):
             return {
-                "available": False,
+                "is_available": False,
                 "message": "Username already taken"
             }
         
         return {
-            "available": True,
+            "is_available": True,
             "message": "Available"
         }
     except Exception as e:
