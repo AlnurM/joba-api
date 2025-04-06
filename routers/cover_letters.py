@@ -33,7 +33,10 @@ async def get_cover_letters_by_user(
     total = await db.cover_letters.count_documents({"user_id": user_id})
     
     # Get documents with pagination
-    cursor = db.cover_letters.find({"user_id": user_id}).sort("created_at", -1).skip(skip).limit(per_page)
+    cursor = db.cover_letters.find({"user_id": user_id}).sort([
+        ("status", 1),  # 1 for ascending, to have "active" first (since active < archived alphabetically)
+        ("created_at", -1)  # -1 for descending, to have newest first
+    ]).skip(skip).limit(per_page)
     cover_letters = await cursor.to_list(length=per_page)
     
     # Convert ObjectId to strings
