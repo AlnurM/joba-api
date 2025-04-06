@@ -62,7 +62,15 @@ async def get_resumes_by_user(
             "filename": resume["filename"],
             "file_id": resume.get("file_id", ""),
             "status": resume.get("status", ResumeStatus.ARCHIVED),
-            "created_at": resume.get("created_at", datetime.utcnow())
+            "created_at": resume.get("created_at", datetime.utcnow()),
+            "scoring": resume.get("scoring", {
+                "total_score": 0,
+                "sections_score": 0,
+                "experience_score": 0,
+                "education_score": 0,
+                "timeline_score": 0,
+                "language_score": 0
+            })
         }
         processed_resumes.append(resume_dict)
     
