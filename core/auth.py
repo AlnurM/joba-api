@@ -217,22 +217,37 @@ async def check_availability(email: Optional[str] = None, username: Optional[str
     try:
         db = get_db()
         
-        if email and await db.users.find_one({"email": email}):
+        # Если ни email, ни username не предоставлены, вернуть ошибку
+        if not email and not username:
             return {
                 "is_available": False,
-                "message": "Email already registered"
+                "message": "No email or username provided"
             }
-        
-        if username and await db.users.find_one({"username": username}):
-            return {
-                "is_available": False,
-                "message": "Username already taken"
-            }
-        
-        return {
+            
+        result = {
             "is_available": True,
             "message": "Available"
         }
+        
+        # Проверяем email, если он предоставлен
+        if email:
+            email_exists = await db.users.find_one({"email": email})
+            if email_exists:
+                return {
+                    "is_available": False,
+                    "message": "Email already registered"
+                }
+        
+        # Проверяем username, если он предоставлен
+        if username:
+            username_exists = await db.users.find_one({"username": username})
+            if username_exists:
+                return {
+                    "is_available": False,
+                    "message": "Username already taken"
+                }
+        
+        return result
     except Exception as e:
         logger.error(f"Error checking availability: {str(e)}")
         raise HTTPException(
