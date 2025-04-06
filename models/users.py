@@ -1,25 +1,29 @@
+"""User models"""
+
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from datetime import datetime
 
 class UserBase(BaseModel):
-    """Базовая модель пользователя с основными полями"""
-    email: EmailStr
-    username: Optional[str] = None
+    """Base user model with core fields"""
+    login: str
+    email: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 class UserCreate(UserBase):
-    """Модель для создания нового пользователя"""
+    """Model for creating a new user"""
     password: str
 
 class User(UserBase):
-    """Модель пользователя для ответов API"""
-    id: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    """User model for API responses"""
+    id: str = Field(..., alias="_id")
+    username: Optional[str] = None
     is_active: bool = True
 
     class Config:
         from_attributes = True
 
 class UserInDB(User):
-    """Модель пользователя в базе данных"""
+    """User model in database"""
     hashed_password: str 

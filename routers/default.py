@@ -13,7 +13,7 @@ async def root():
 @router.get("/health")
 async def health_check():
     try:
-        # Получаем URL базы данных
+        # Get database URL
         mongodb_url = os.getenv("MONGO_URL")
         if not mongodb_url:
             raise HTTPException(
@@ -21,17 +21,17 @@ async def health_check():
                 detail="MongoDB URL not configured"
             )
         
-        # Создаем временное подключение для проверки
+        # Create temporary connection for testing
         client = AsyncIOMotorClient(
             mongodb_url,
             serverSelectionTimeoutMS=5000,
             connectTimeoutMS=5000
         )
         
-        # Проверяем подключение через ping
+        # Check connection with ping
         await client.admin.command('ping')
         
-        # Проверяем доступ к базе данных и коллекции
+        # Check database and collection access
         test_db = client.joba
         await test_db.users.find_one()
         

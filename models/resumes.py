@@ -1,32 +1,32 @@
-from pydantic import BaseModel, Field
-from typing import Optional
-from datetime import datetime
+"""Models for resumes"""
+
 from enum import Enum
+from typing import Optional
+from pydantic import BaseModel, Field
+from datetime import datetime
 
 class ResumeStatus(str, Enum):
+    """Resume status options"""
+    DRAFT = "draft"
     ACTIVE = "active"
     ARCHIVED = "archived"
-    DELETED = "deleted"
 
 class ResumeStatusUpdate(BaseModel):
-    """Модель для обновления статуса резюме"""
+    """Model for updating resume status"""
     status: ResumeStatus
 
 class ResumeBase(BaseModel):
-    """Базовая модель резюме"""
-    filename: str
-    file_id: str  # ID файла в GridFS
-    status: ResumeStatus = ResumeStatus.ARCHIVED
+    """Base resume model"""
+    title: str
+    file_id: str  # File ID in GridFS
+    status: ResumeStatus = ResumeStatus.DRAFT
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 class ResumeCreate(ResumeBase):
-    """Модель для создания нового резюме"""
+    """Model for creating a new resume"""
     pass
 
 class Resume(ResumeBase):
-    """Модель резюме для ответов API"""
-    id: str
-    user_id: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-    class Config:
-        from_attributes = True 
+    """Resume model for API responses"""
+    id: str = Field(..., alias="_id") 

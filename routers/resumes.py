@@ -23,36 +23,36 @@ async def get_resumes_by_user(
     status: Optional[ResumeStatus] = None
 ) -> Dict[str, Any]:
     """
-    Получение резюме пользователя с пагинацией.
-    Сортировка по статусу (активные первыми) и дате создания (от недавнего к старому).
+    Get user's resumes with pagination.
+    Sort by status (active first) and creation date (newest to oldest).
     
     Args:
-        user_id: ID пользователя
-        page: Номер страницы
-        per_page: Количество элементов на странице
-        status: Опциональный фильтр по статусу резюме
+        user_id: User ID
+        page: Page number
+        per_page: Items per page
+        status: Optional resume status filter
     """
     skip = (page - 1) * per_page
     db = get_db()
     
-    # Формируем условия поиска
+    # Form search conditions
     query = {"user_id": str(user_id)}
     if status is not None:
         query["status"] = status
     
-    # Получаем общее количество документов
+    # Get total number of documents
     total = await db.resumes.count_documents(query)
     
-    # Получаем документы с пагинацией и сортировкой:
-    # 1. По статусу (активные первыми)
-    # 2. По дате создания (от новых к старым)
+    # Get documents with pagination and sorting:
+    # 1. By status (active first)
+    # 2. By creation date (newest to oldest)
     cursor = db.resumes.find(query).sort([
-        ("status", 1),  # 1 для ascending, чтобы "active" было первым (т.к. active < archived в алфавитном порядке)
-        ("created_at", -1)  # -1 для descending, чтобы новые были первыми
+        ("status", 1),  # 1 for ascending, to have "active" first (since active < archived alphabetically)
+        ("created_at", -1)  # -1 for descending, to have newest first
     ]).skip(skip).limit(per_page)
     resumes = await cursor.to_list(length=per_page)
     
-    # Преобразуем ObjectId в строки и создаем словари для каждого резюме
+    # Convert ObjectId to strings and create dictionaries for each resume
     processed_resumes = []
     for resume in resumes:
         resume_dict = {
@@ -82,36 +82,36 @@ async def upload_resume(
     db = Depends(get_db)
 ):
     """
-    Загружает резюме и сохраняет его в базу данных.
+    Upload resume and save it to database.
     
     Args:
-        file: Файл резюме
-        current_user: Текущий пользователь
-        db: Подключение к базе данных
+        file: Resume file
+        current_user: Current user
+        db: Database connection
         
     Returns:
-        Resume с информацией о загруженном резюме
+        Resume with information about uploaded resume
     """
     try:
-        # Проверяем расширение файла
+        # Check file extension
         file_extension = os.path.splitext(file.filename)[1].lower()
         if file_extension not in ['.pdf', '.doc', '.docx']:
             raise HTTPException(
                 status_code=400,
-                detail="Неподдерживаемый формат файла. Поддерживаются только PDF, DOC и DOCX"
+                detail="Unsupported file format. Only PDF, DOC and DOCX are supported"
             )
             
-        # Читаем содержимое файла
+        # Read file content
         file_content = await file.read()
         
-        # Сохраняем файл в GridFS
+        # Save file to GridFS
         file_id = await save_file_content(file_content, file.filename, str(current_user.id))
         
-        # Обрабатываем резюме
-        logger.info(f"Начинаем обработку резюме {file.filename}")
+        # Process resume
+        logger.info(f"Starting resume processing {file.filename}")
         processed_data = await process_resume(file_content, file_extension)
         
-        # Добавляем системные поля
+        # Add system fields
         resume_data = {
             **processed_data,
             "user_id": str(current_user.id),
@@ -122,21 +122,21 @@ async def upload_resume(
             "updated_at": datetime.utcnow()
         }
         
-        # Сохраняем в базу данных
+        # Save to database
         result = await db.resumes.insert_one(resume_data)
         resume_data["id"] = str(result.inserted_id)
         
-        logger.info(f"Резюме успешно сохранено в базу данных, ID: {resume_data['id']}")
+        logger.info(f"Resume successfully saved to database, ID: {resume_data['id']}")
         
         return Resume(**resume_data)
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Ошибка при загрузке резюме: {str(e)}")
+        logger.error(f"Error uploading resume: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Ошибка при загрузке резюме: {str(e)}"
+            detail=f"Error uploading resume: {str(e)}"
         )
 
 @router.get("/list", response_model=Dict[str, Any])
@@ -147,7 +147,7 @@ async def list_resumes(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Получение списка резюме текущего пользователя с пагинацией и фильтрацией по статусу
+    Get current user's resume list with pagination and status filtering
     """
     try:
         return await get_resumes_by_user(
@@ -157,10 +157,10 @@ async def list_resumes(
             status=status
         )
     except Exception as e:
-        logger.error(f"Ошибка при получении списка резюме: {str(e)}")
+        logger.error(f"Error getting resume list: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Ошибка при получении списка резюме"
+            detail="Error getting resume list"
         )
 
 @router.get("/{resume_id}/download")
@@ -169,10 +169,10 @@ async def download_resume(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Скачивание резюме
+    Download resume
     """
     try:
-        # Получаем информацию о резюме
+        # Get resume information
         db = get_db()
         resume = await db.resumes.find_one({
             "_id": ObjectId(resume_id),
@@ -182,13 +182,13 @@ async def download_resume(
         if not resume:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Резюме не найдено"
+                detail="Resume not found"
             )
         
-        # Получаем файл из GridFS
+        # Get file from GridFS
         file_content, filename = await get_file(resume["file_id"])
         
-        # Возвращаем файл
+        # Return file
         return Response(
             content=file_content,
             media_type="application/octet-stream",
@@ -200,10 +200,10 @@ async def download_resume(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Ошибка при скачивании резюме: {str(e)}")
+        logger.error(f"Error downloading resume: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Ошибка при скачивании резюме"
+            status_code=500,
+            detail=f"Error downloading resume: {str(e)}"
         )
 
 @router.post("/test-process")
@@ -211,41 +211,41 @@ async def test_process_resume(
     file: UploadFile = File(...),
 ):
     """
-    Тестовый эндпоинт для анализа резюме без сохранения
+    Test endpoint for resume analysis without saving
     """
     try:
-        # Проверяем тип файла
+        # Check file type
         if not is_allowed_file(file.filename):
             raise HTTPException(
                 status_code=400,
-                detail=f"Недопустимый тип файла. Разрешены: {', '.join(ALLOWED_EXTENSIONS)}"
+                detail=f"Invalid file type. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}"
             )
 
-        # Получаем расширение файла
+        # Get file extension
         file_extension = os.path.splitext(file.filename)[1]
         
-        # Читаем содержимое файла
+        # Read file content
         content = await file.read()
         
         try:
-            # Анализируем резюме
+            # Analyze resume
             result = await process_resume(content, file_extension)
             return result
             
         except Exception as e:
-            logger.error(f"Ошибка при анализе резюме: {str(e)}")
+            logger.error(f"Error analyzing resume: {str(e)}")
             raise HTTPException(
                 status_code=500,
-                detail="Не удалось проанализировать резюме"
+                detail="Failed to analyze resume"
             )
             
     except HTTPException as e:
         raise e
     except Exception as e:
-        logger.error(f"Ошибка при обработке файла: {str(e)}")
+        logger.error(f"Error processing file: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail="Ошибка при обработке файла"
+            detail="Error processing file"
         )
 
 @router.delete("/{resume_id}", status_code=status.HTTP_200_OK)
@@ -255,27 +255,27 @@ async def delete_resume(
     db = Depends(get_db)
 ):
     """
-    Удаляет резюме по ID
+    Delete resume by ID
     
     Args:
-        resume_id: ID резюме для удаления
-        current_user: Текущий пользователь
-        db: Подключение к базе данных
+        resume_id: Resume ID to delete
+        current_user: Current user
+        db: Database connection
         
     Returns:
-        Статус 200 OK при успешном удалении
+        Status 200 OK on successful deletion
     """
     try:
-        # Проверяем валидность ObjectId
+        # Check ObjectId validity
         try:
             object_id = ObjectId(resume_id)
         except:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Некорректный формат ID резюме"
+                detail="Invalid resume ID format"
             )
         
-        # Проверяем, что резюме существует и принадлежит текущему пользователю
+        # Check that resume exists and belongs to current user
         resume = await db.resumes.find_one({
             "_id": object_id,
             "user_id": str(current_user.id)
@@ -284,37 +284,37 @@ async def delete_resume(
         if not resume:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Резюме не найдено или доступ запрещен"
+                detail="Resume not found or access denied"
             )
         
-        # Если у нас есть файл, также удаляем его из GridFS
+        # If we have a file, also delete it from GridFS
         if "file_id" in resume:
             fs = AsyncIOMotorGridFSBucket(db)
             try:
                 await fs.delete(ObjectId(resume["file_id"]))
-                logger.info(f"Файл резюме удален из GridFS: {resume['file_id']}")
+                logger.info(f"Resume file deleted from GridFS: {resume['file_id']}")
             except Exception as e:
-                logger.warning(f"Не удалось удалить файл резюме из GridFS: {str(e)}")
+                logger.warning(f"Failed to delete resume file from GridFS: {str(e)}")
         
-        # Удаляем резюме из базы данных
+        # Delete resume from database
         result = await db.resumes.delete_one({"_id": object_id})
         
         if result.deleted_count == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Резюме не удалено"
+                detail="Resume not deleted"
             )
         
-        logger.info(f"Резюме успешно удалено: {resume_id}")
-        return {"message": "Резюме успешно удалено", "id": resume_id}
+        logger.info(f"Resume successfully deleted: {resume_id}")
+        return {"message": "Resume successfully deleted", "id": resume_id}
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Ошибка при удалении резюме: {str(e)}")
+        logger.error(f"Error deleting resume: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Ошибка при удалении резюме: {str(e)}"
+            detail=f"Error deleting resume: {str(e)}"
         )
 
 @router.patch("/{resume_id}/status", status_code=status.HTTP_200_OK)
@@ -325,28 +325,28 @@ async def update_resume_status(
     db = Depends(get_db)
 ):
     """
-    Изменяет статус резюме
+    Update resume status
     
     Args:
-        resume_id: ID резюме
-        status_update: Новый статус
-        current_user: Текущий пользователь
-        db: Подключение к базе данных
+        resume_id: Resume ID
+        status_update: New status
+        current_user: Current user
+        db: Database connection
         
     Returns:
-        Обновленное резюме
+        Updated resume
     """
     try:
-        # Проверяем валидность ObjectId
+        # Check ObjectId validity
         try:
             object_id = ObjectId(resume_id)
         except:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Некорректный формат ID резюме"
+                detail="Invalid resume ID format"
             )
         
-        # Проверяем, что резюме существует и принадлежит текущему пользователю
+        # Check that resume exists and belongs to current user
         resume = await db.resumes.find_one({
             "_id": object_id,
             "user_id": str(current_user.id)
@@ -355,10 +355,10 @@ async def update_resume_status(
         if not resume:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Резюме не найдено или доступ запрещен"
+                detail="Resume not found or access denied"
             )
         
-        # Обновляем статус
+        # Update status
         result = await db.resumes.update_one(
             {"_id": object_id},
             {"$set": {"status": status_update.status}}
@@ -367,10 +367,10 @@ async def update_resume_status(
         if result.modified_count == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Резюме не обновлено"
+                detail="Resume not updated"
             )
         
-        # Получаем обновленное резюме
+        # Get updated resume
         updated_resume = await db.resumes.find_one({"_id": object_id})
         updated_resume["id"] = str(updated_resume["_id"])
         
@@ -379,8 +379,8 @@ async def update_resume_status(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Ошибка при обновлении статуса резюме: {str(e)}")
+        logger.error(f"Error updating resume status: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Ошибка при обновлении статуса резюме: {str(e)}"
+            detail=f"Error updating resume status: {str(e)}"
         ) 

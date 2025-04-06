@@ -1,38 +1,36 @@
+"""Main application module"""
+
+import logging
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorDatabase
-from core.database import init_db
-import logging
 from dotenv import load_dotenv
-import os
-from routers import auth, default, cover_letters, resumes
-from fastapi.security import HTTPBearer
+from core.database import init_db
+from routers import auth, resumes, cover_letters
 
-# Настройка логирования
-logging.basicConfig(level=logging.INFO)
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
-# Загрузка переменных окружения
+# Load environment variables
 load_dotenv()
 
-# Получение порта из переменных окружения (для Railway)
-PORT = int(os.getenv("PORT", "8080"))
+# Get port from environment variables (for Railway)
+PORT = int(os.getenv("PORT", 8000))
 
-# Схема аутентификации
-security = HTTPBearer()
-
+# Authentication scheme
 app = FastAPI(
     title="Joba API",
-    description="API для сервиса Joba",
+    description="API for job application management",
     version="1.0.0",
-    openapi_tags=[
-        {"name": "authentication", "description": "Операции аутентификации"},
-        {"name": "cover-letters", "description": "Операции с сопроводительными письмами"},
-        {"name": "resumes", "description": "Операции с резюме"}
-    ]
+    docs_url="/docs",
+    redoc_url="/redoc"
 )
 
-# Добавляем схему безопасности
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -41,6 +39,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Initialize database
 @app.on_event("startup")
 async def startup_event():
     try:
@@ -51,8 +50,7 @@ async def startup_event():
         logger.error(f"Failed to connect to MongoDB: {str(e)}")
         raise
 
-# Подключаем роутеры
-app.include_router(default.router)
-app.include_router(auth.router)
-app.include_router(cover_letters.router)
-app.include_router(resumes.router) 
+# Include routers
+app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+app.include_router(resumes.router, prefix="/resumes", tags=["Resumes"])
+app.include_router(cover_letters.router, prefix="/cover-letters", tags=["Cover Letters"]) 

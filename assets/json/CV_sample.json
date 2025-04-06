@@ -185,10 +185,10 @@
     ]
   },
   "original_text": {
-    "raw_text": "... (полный текст резюме для reference) ...",
+    "raw_text": "... (full resume text for reference) ...",
     "segmented_text": {
-      "education": "... (вырезанный текст про образование) ...",
-      "experience": "... (вырезанный текст про опыт работы) ..."
+      "education": "... (extracted text about education) ...",
+      "experience": "... (extracted text about work experience) ..."
     }
   }
 }

@@ -23,19 +23,19 @@ async def get_cover_letters_by_user(
     per_page: int = 10
 ) -> Dict[str, Any]:
     """
-    Получение cover letters пользователя с пагинацией
+    Get user's cover letters with pagination
     """
     skip = (page - 1) * per_page
     db = get_db()
     
-    # Получаем общее количество документов
+    # Get total number of documents
     total = await db.cover_letters.count_documents({"user_id": user_id})
     
-    # Получаем документы с пагинацией
+    # Get documents with pagination
     cursor = db.cover_letters.find({"user_id": user_id}).sort("created_at", -1).skip(skip).limit(per_page)
     cover_letters = await cursor.to_list(length=per_page)
     
-    # Преобразуем ObjectId в строки
+    # Convert ObjectId to strings
     processed_letters = []
     for letter in cover_letters:
         letter_dict = {
@@ -66,7 +66,7 @@ async def list_cover_letters(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Получение списка cover letters текущего пользователя с пагинацией
+    Get current user's cover letters list with pagination
     """
     try:
         return await get_cover_letters_by_user(
@@ -86,12 +86,12 @@ async def create_cover_letter(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Создание нового cover letter
+    Create a new cover letter
     """
     try:
         db = get_db()
         
-        # Добавляем системные поля
+        # Add system fields
         cover_letter_dict = cover_letter.model_dump()
         cover_letter_dict.update({
             "user_id": str(current_user.id),
@@ -99,10 +99,10 @@ async def create_cover_letter(
             "updated_at": datetime.utcnow()
         })
         
-        # Сохраняем в базу данных
+        # Save to database
         result = await db.cover_letters.insert_one(cover_letter_dict)
         
-        # Получаем созданный документ
+        # Get created document
         created_letter = await db.cover_letters.find_one({"_id": result.inserted_id})
         created_letter["id"] = str(created_letter.pop("_id"))
         
@@ -120,13 +120,13 @@ async def get_cover_letter(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Получение cover letter по ID.
-    Проверяет, что документ принадлежит текущему пользователю.
+    Get cover letter by ID.
+    Checks that the document belongs to the current user.
     """
     try:
         db = get_db()
         
-        # Проверяем валидность ObjectId
+        # Check ObjectId validity
         try:
             object_id = ObjectId(cover_letter_id)
         except:
@@ -135,7 +135,7 @@ async def get_cover_letter(
                 detail="Invalid cover letter ID format"
             )
         
-        # Ищем документ с проверкой принадлежности пользователю
+        # Find document and check user ownership
         cover_letter = await db.cover_letters.find_one({
             "_id": object_id,
             "user_id": str(current_user.id)
@@ -147,7 +147,7 @@ async def get_cover_letter(
                 detail="Cover letter not found or access denied"
             )
         
-        # Преобразуем ObjectId в строку
+        # Convert ObjectId to string
         cover_letter["id"] = str(cover_letter.pop("_id"))
         
         return CoverLetter(**cover_letter)
@@ -166,12 +166,12 @@ async def update_cover_letter_status(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Обновление статуса cover letter
+    Update cover letter status
     """
     try:
         db = get_db()
         
-        # Проверяем валидность ObjectId
+        # Check ObjectId validity
         try:
             object_id = ObjectId(cover_letter_id)
         except:
@@ -180,7 +180,7 @@ async def update_cover_letter_status(
                 detail="Invalid cover letter ID format"
             )
         
-        # Проверяем существование документа и права доступа
+        # Check document existence and access rights
         cover_letter = await db.cover_letters.find_one({
             "_id": object_id,
             "user_id": str(current_user.id)
@@ -192,7 +192,7 @@ async def update_cover_letter_status(
                 detail="Cover letter not found or access denied"
             )
         
-        # Обновляем статус
+        # Update status
         result = await db.cover_letters.update_one(
             {"_id": object_id},
             {
@@ -209,7 +209,7 @@ async def update_cover_letter_status(
                 detail="Cover letter not updated"
             )
         
-        # Получаем обновленный документ
+        # Get updated document
         updated_letter = await db.cover_letters.find_one({"_id": object_id})
         updated_letter["id"] = str(updated_letter.pop("_id"))
         
@@ -229,12 +229,12 @@ async def delete_cover_letter(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Удаление cover letter
+    Delete cover letter
     """
     try:
         db = get_db()
         
-        # Проверяем валидность ObjectId
+        # Check ObjectId validity
         try:
             object_id = ObjectId(cover_letter_id)
         except:
@@ -243,7 +243,7 @@ async def delete_cover_letter(
                 detail="Invalid cover letter ID format"
             )
         
-        # Проверяем существование документа и права доступа
+        # Check document existence and access rights
         cover_letter = await db.cover_letters.find_one({
             "_id": object_id,
             "user_id": str(current_user.id)
@@ -255,7 +255,7 @@ async def delete_cover_letter(
                 detail="Cover letter not found or access denied"
             )
         
-        # Удаляем документ
+        # Delete document
         result = await db.cover_letters.delete_one({"_id": object_id})
         
         if result.deleted_count == 0:
@@ -280,29 +280,29 @@ async def generate_cover_letter_content(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Генерирует текст сопроводительного письма на основе данных резюме
+    Generate cover letter text based on resume data
     
     Args:
-        request: Запрос на генерацию текста
-        current_user: Текущий пользователь
+        request: Text generation request
+        current_user: Current user
         
     Returns:
-        Сгенерированный текст
+        Generated text
     """
     try:
         db = get_db()
         claude_client = ClaudeClient()
         
-        # Проверяем валидность ObjectId
+        # Check ObjectId validity
         try:
             resume_id = ObjectId(request.resume_id)
         except:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Некорректный формат ID резюме"
+                detail="Invalid resume ID format"
             )
         
-        # Получаем резюме и проверяем права доступа
+        # Get resume and check access rights
         resume = await db.resumes.find_one({
             "_id": resume_id,
             "user_id": str(current_user.id)
@@ -311,23 +311,23 @@ async def generate_cover_letter_content(
         if not resume:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Резюме не найдено или доступ запрещен"
+                detail="Resume not found or access denied"
             )
         
-        # Проверяем, что content_type валидный
+        # Check if content_type is valid
         if request.content_type not in ["introduction", "body_part_1", "body_part_2", "conclusion"]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Некорректный тип контента"
+                detail="Invalid content type"
             )
         
-        # Извлекаем данные кандидата из резюме, исключая служебные поля
+        # Extract candidate data from resume, excluding service fields
         candidate_data = {
             k: v for k, v in resume.items() 
             if k not in ["_id", "user_id", "filename", "file_id", "status", "created_at", "updated_at"]
         }
         
-        # Генерируем текст через Claude
+        # Generate text using Claude
         generated_text = await claude_client.generate_cover_letter_content(
             candidate_data=candidate_data,
             prompt=request.prompt,

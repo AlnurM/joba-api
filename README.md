@@ -1,38 +1,38 @@
 # FastAPI MongoDB Project
 
-Простой проект на FastAPI с использованием MongoDB.
+A simple FastAPI project using MongoDB.
 
-## Требования
+## Requirements
 
 - Python 3.8+
 - MongoDB
-- pip (менеджер пакетов Python)
+- pip (Python package manager)
 
-## Установка
+## Installation
 
-1. Клонируйте репозиторий
-2. Создайте виртуальное окружение:
+1. Clone the repository
+2. Create a virtual environment:
 ```bash
 python -m venv venv
-source venv/bin/activate  # для Linux/Mac
-# или
-.\venv\Scripts\activate  # для Windows
+source venv/bin/activate  # for Linux/Mac
+# or
+.\venv\Scripts\activate  # for Windows
 ```
 
-3. Установите зависимости:
+3. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-4. Убедитесь, что MongoDB запущена на вашей машине
+4. Make sure MongoDB is running on your machine
 
-## Запуск
+## Running the Application
 
-1. Запустите сервер:
+1. Start the server:
 ```bash
 uvicorn main:app --reload
 ```
 
-2. Откройте браузер и перейдите по адресу: http://localhost:8000
+2. Open your browser and navigate to: http://localhost:8000
 
-3. Документация API доступна по адресу: http://localhost:8000/docs 
+3. API documentation is available at: http://localhost:8000/docs 

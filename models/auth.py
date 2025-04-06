@@ -1,30 +1,32 @@
+"""Authentication models"""
+
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
-class UserLogin(BaseModel):
-    """Модель для входа пользователя"""
-    login: str  # email или username
+class SignInRequest(BaseModel):
+    """Model for user sign in"""
+    login: str  # email or username
     password: str
 
-class Token(BaseModel):
-    """Модель токена доступа"""
+class AccessToken(BaseModel):
+    """Access token model"""
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
 
 class TokenData(BaseModel):
-    """Модель данных токена"""
-    sub: str
-    exp: datetime
-    type: str  # access или refresh
+    """Token data model"""
+    user_id: str
+    type: str  # access or refresh
+    exp: int
 
 class AvailabilityCheck(BaseModel):
-    """Модель для проверки доступности email и username"""
-    email: Optional[str] = None
-    username: Optional[str] = None
+    """Model for checking email and username availability"""
+    email: str | None = None
+    username: str | None = None
 
 class AvailabilityResponse(BaseModel):
-    """Модель ответа на проверку доступности"""
-    available: bool
+    """Response model for availability check"""
+    is_available: bool
     message: str 

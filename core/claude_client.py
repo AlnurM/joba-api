@@ -15,7 +15,7 @@ class ClaudeClient:
     def __init__(self):
         self.api_key = os.getenv("CLAUDE_API_KEY")
         if not self.api_key:
-            raise ValueError("CLAUDE_API_KEY не установлен в переменных окружения")
+            raise ValueError("CLAUDE_API_KEY is not set in environment variables")
         
         self.base_url = "https://api.anthropic.com/v1"
         self.headers = {
@@ -24,12 +24,12 @@ class ClaudeClient:
             "content-type": "application/json"
         }
         
-        # Оптимизированные настройки HTTP-клиента
+        # Optimized HTTP client settings
         self.timeout = Timeout(
-            connect=10.0,  # Таймаут на установку соединения
-            read=120.0,    # Таймаут на чтение ответа
-            write=10.0,    # Таймаут на запись
-            pool=10.0      # Таймаут на получение соединения из пула
+            connect=10.0,  # Connection establishment timeout
+            read=120.0,    # Response read timeout
+            write=10.0,    # Write timeout
+            pool=10.0      # Pool connection acquisition timeout
         )
         self.limits = Limits(
             max_keepalive_connections=5,
@@ -38,14 +38,14 @@ class ClaudeClient:
         
     async def analyze_text(self, text: str, prompt: str) -> Dict[str, Any]:
         """
-        Анализирует текст с помощью Claude API
+        Analyze text using Claude API
         
         Args:
-            text: Текст для анализа
-            prompt: Промпт для Claude
+            text: Text to analyze
+            prompt: Prompt for Claude
             
         Returns:
-            Dict с результатами анализа
+            Dict with analysis results
         """
         start_time = time.time()
         try:
@@ -54,7 +54,7 @@ class ClaudeClient:
                 limits=self.limits,
                 http2=True
             ) as client:
-                logger.info(f"Отправка запроса к Claude API (текст длиной {len(text)} символов)")
+                logger.info(f"Sending request to Claude API (text length: {len(text)} characters)")
                 response = await client.post(
                     f"{self.base_url}/messages",
                     headers=self.headers,
@@ -64,95 +64,95 @@ class ClaudeClient:
                         "messages": [
                             {
                                 "role": "user",
-                                "content": f"{prompt}\n\nТекст для анализа:\n{text}"
+                                "content": f"{prompt}\n\nText to analyze:\n{text}"
                             }
                         ]
                     }
                 )
                 
                 elapsed_time = time.time() - start_time
-                logger.info(f"Запрос к Claude API выполнен за {elapsed_time:.2f} секунд")
+                logger.info(f"Claude API request completed in {elapsed_time:.2f} seconds")
                 
                 if response.status_code != 200:
-                    logger.error(f"Ошибка Claude API (HTTP {response.status_code}): {response.text}")
+                    logger.error(f"Claude API error (HTTP {response.status_code}): {response.text}")
                     raise HTTPException(
                         status_code=500,
-                        detail=f"Ошибка при анализе текста: {response.text}"
+                        detail=f"Error analyzing text: {response.text}"
                     )
                 
                 result = response.json()
-                logger.debug(f"Ответ от Claude API: {json.dumps(result, ensure_ascii=False)}")
+                logger.debug(f"Response from Claude API: {json.dumps(result, ensure_ascii=False)}")
                 return result
                 
         except httpx.TimeoutException as e:
-            logger.error(f"Таймаут при запросе к Claude API: {str(e)}")
+            logger.error(f"Timeout in Claude API request: {str(e)}")
             raise HTTPException(
                 status_code=504,
-                detail="Таймаут при запросе к API"
+                detail="API request timeout"
             )
         except Exception as e:
-            logger.error(f"Ошибка при запросе к Claude API: {str(e)}")
+            logger.error(f"Error in Claude API request: {str(e)}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Ошибка при анализе текста: {str(e)}"
+                detail=f"Error analyzing text: {str(e)}"
             )
             
     async def extract_json(self, text: str, prompt: str) -> Dict[str, Any]:
         """
-        Извлекает структурированные данные в формате JSON из текста
+        Extract structured data in JSON format from text
         
         Args:
-            text: Текст для анализа
-            prompt: Промпт для Claude с инструкциями по извлечению данных
+            text: Text to analyze
+            prompt: Prompt for Claude with data extraction instructions
             
         Returns:
-            Dict с извлеченными данными
+            Dict with extracted data
         """
         try:
             result = await self.analyze_text(text, prompt)
             content = result.get("content", [{}])[0].get("text", "")
             
-            logger.debug(f"Сырой ответ от Claude: {content}")
+            logger.debug(f"Raw response from Claude: {content}")
             
-            # Ищем JSON в ответе
+            # Find JSON in response
             start = content.find("{")
             end = content.rfind("}") + 1
             if start == -1 or end == 0:
-                logger.error("Не удалось найти JSON в ответе")
-                raise ValueError("Не удалось найти JSON в ответе")
+                logger.error("Could not find JSON in response")
+                raise ValueError("Could not find JSON in response")
                 
             json_str = content[start:end]
-            logger.debug(f"Извлеченный JSON: {json_str}")
+            logger.debug(f"Extracted JSON: {json_str}")
             
             try:
                 return json.loads(json_str)
             except json.JSONDecodeError as e:
-                logger.error(f"Ошибка при парсинге JSON: {str(e)}")
-                logger.error(f"Проблемный JSON: {json_str}")
-                raise ValueError(f"Ошибка при парсинге JSON: {str(e)}")
+                logger.error(f"Error parsing JSON: {str(e)}")
+                logger.error(f"Problematic JSON: {json_str}")
+                raise ValueError(f"Error parsing JSON: {str(e)}")
             
         except Exception as e:
-            logger.error(f"Ошибка при извлечении JSON: {str(e)}")
+            logger.error(f"Error extracting JSON: {str(e)}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Ошибка при извлечении данных: {str(e)}"
+                detail=f"Error extracting data: {str(e)}"
             )
 
     async def analyze_file(self, file_content: bytes, file_extension: str, prompt: str) -> Dict[str, Any]:
         """
-        Анализирует файл с помощью Claude API
+        Analyze file using Claude API
         
         Args:
-            file_content: Содержимое файла в байтах
-            file_extension: Расширение файла (с точкой)
-            prompt: Промпт для Claude
+            file_content: File content in bytes
+            file_extension: File extension (with dot)
+            prompt: Prompt for Claude
             
         Returns:
-            Dict с результатами анализа
+            Dict with analysis results
         """
         start_time = time.time()
         try:
-            # Определяем MIME-тип файла
+            # Determine file MIME type
             mime_types = {
                 '.pdf': 'application/pdf',
                 '.doc': 'application/msword',
@@ -160,21 +160,21 @@ class ClaudeClient:
             }
             mime_type = mime_types.get(file_extension.lower())
             if not mime_type:
-                raise ValueError(f"Неподдерживаемый формат файла: {file_extension}")
+                raise ValueError(f"Unsupported file format: {file_extension}")
 
-            # Кодируем файл в base64
+            # Encode file in base64
             file_base64 = base64.b64encode(file_content).decode('utf-8')
-            logger.info(f"Файл закодирован в base64 (размер: {len(file_base64)} символов)")
+            logger.info(f"File encoded in base64 (size: {len(file_base64)} characters)")
             
-            # Создаем HTTP-клиент с настройками
+            # Create HTTP client with settings
             async with httpx.AsyncClient(
                 timeout=self.timeout,
                 limits=self.limits,
                 http2=True
             ) as client:
-                for attempt in range(3):  # Максимум 3 попытки
+                for attempt in range(3):  # Maximum 3 attempts
                     try:
-                        logger.info(f"Попытка {attempt + 1} из 3")
+                        logger.info(f"Attempt {attempt + 1} of 3")
                         response = await client.post(
                             f"{self.base_url}/messages",
                             headers=self.headers,
@@ -203,55 +203,37 @@ class ClaudeClient:
                             }
                         )
                         
-                        elapsed_time = time.time() - start_time
-                        logger.info(f"Запрос к Claude API выполнен за {elapsed_time:.2f} секунд")
-                        
                         if response.status_code == 200:
-                            return response.json()
-                        
-                        # Если ошибка 429 (слишком много запросов), ждем и пробуем снова
-                        if response.status_code == 429:
-                            if attempt < 2:  # Не ждем на последней попытке
-                                wait_time = 2 ** attempt
-                                logger.info(f"Получен код 429, ждем {wait_time} секунд")
-                                await asyncio.sleep(wait_time)  # Экспоненциальная задержка
+                            break
+                        elif response.status_code == 429:  # Rate limit
+                            if attempt < 2:  # Don't sleep on last attempt
+                                await asyncio.sleep(2 ** attempt)  # Exponential backoff
                                 continue
-                                
-                        logger.error(f"Ошибка Claude API (HTTP {response.status_code}): {response.text}")
+                        
+                        logger.error(f"Claude API error (HTTP {response.status_code}): {response.text}")
                         raise HTTPException(
                             status_code=500,
-                            detail=f"Ошибка при анализе файла: {response.text}"
+                            detail=f"Error analyzing file: {response.text}"
                         )
                         
-                    except httpx.TimeoutException:
-                        if attempt < 2:  # Не ждем на последней попытке
-                            wait_time = 2 ** attempt
-                            logger.warning(f"Таймаут, ждем {wait_time} секунд")
-                            await asyncio.sleep(wait_time)
-                            continue
-                        raise HTTPException(
-                            status_code=504,
-                            detail="Таймаут при запросе к API"
-                        )
-                    except Exception as e:
-                        if attempt < 2:  # Не ждем на последней попытке
-                            wait_time = 2 ** attempt
-                            logger.warning(f"Ошибка: {str(e)}, ждем {wait_time} секунд")
-                            await asyncio.sleep(wait_time)
-                            continue
-                        raise
+                elapsed_time = time.time() - start_time
+                logger.info(f"Claude API request completed in {elapsed_time:.2f} seconds")
                 
-                # Если все попытки неудачны
-                raise HTTPException(
-                    status_code=500,
-                    detail="Не удалось выполнить запрос после нескольких попыток"
-                )
+                result = response.json()
+                logger.debug(f"Response from Claude API: {json.dumps(result, ensure_ascii=False)}")
+                return result
                 
+        except httpx.TimeoutException as e:
+            logger.error(f"Timeout in Claude API request: {str(e)}")
+            raise HTTPException(
+                status_code=504,
+                detail="API request timeout"
+            )
         except Exception as e:
-            logger.error(f"Ошибка при запросе к Claude API: {str(e)}")
+            logger.error(f"Error in Claude API request: {str(e)}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Ошибка при анализе файла: {str(e)}"
+                detail=f"Error analyzing file: {str(e)}"
             )
 
     async def generate_cover_letter_content(

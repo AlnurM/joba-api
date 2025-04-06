@@ -1,8 +1,10 @@
-from pydantic import BaseModel, Field
+"""Models for cover letters"""
+
+from enum import Enum
 from typing import Optional
+from pydantic import BaseModel, Field
 from datetime import datetime
 from bson import ObjectId
-from enum import Enum
 
 class CoverLetterStatus(str, Enum):
     ACTIVE = "active"
@@ -16,11 +18,11 @@ class CoverLetterContent(BaseModel):
     conclusion: str
 
 class CoverLetterGenerateRequest(BaseModel):
-    """Модель для запроса генерации текста сопроводительного письма"""
+    """Model for cover letter content generation request"""
     resume_id: str
     prompt: str
     content_type: str = Field(
-        description="Тип контента: introduction, body_part_1, body_part_2, conclusion"
+        description="Content type: introduction, body_part_1, body_part_2, conclusion"
     )
 
 class CoverLetterCreate(BaseModel):
@@ -29,7 +31,7 @@ class CoverLetterCreate(BaseModel):
     status: CoverLetterStatus = CoverLetterStatus.ARCHIVED
 
 class CoverLetterStatusUpdate(BaseModel):
-    """Модель для обновления статуса сопроводительного письма"""
+    """Model for updating cover letter status"""
     status: CoverLetterStatus
 
 class CoverLetter(BaseModel):
@@ -40,6 +42,10 @@ class CoverLetter(BaseModel):
     status: CoverLetterStatus = CoverLetterStatus.ARCHIVED
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class CoverLetter(CoverLetterBase):
+    """Cover letter model for API responses"""
+    id: str = Field(..., alias="_id")
 
     class Config:
         from_attributes = True

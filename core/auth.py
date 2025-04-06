@@ -10,19 +10,19 @@ from bson.objectid import ObjectId
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer
 
-# Настройка логирования
+# Logging setup
 logger = logging.getLogger(__name__)
 
-# Настройки безопасности
+# Security settings
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_HOURS = 24  # Изменено с 30 минут на 24 часа
+ACCESS_TOKEN_EXPIRE_HOURS = 24  # Changed from 30 minutes to 24 hours
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
-# Настройка хеширования паролей
+# Password hashing settings
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# Инициализация HTTPBearer
+# HTTPBearer initialization
 security = HTTPBearer()
 
 def get_password_hash(password: str) -> str:
@@ -49,17 +49,17 @@ def create_refresh_token(data: dict) -> str:
     return encoded_jwt
 
 async def create_user(user: UserCreate) -> User:
-    """Создание нового пользователя"""
+    """Create a new user"""
     db = get_db()
     
-    # Проверяем, существует ли пользователь с таким email
+    # Check if user with this email exists
     if await db.users.find_one({"email": user.email}):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Email already registered"
         )
     
-    # Проверяем, существует ли пользователь с таким username (если указан)
+    # Check if user with this username exists (if provided)
     if user.username and await db.users.find_one({"username": user.username}):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -67,7 +67,7 @@ async def create_user(user: UserCreate) -> User:
         )
     
     try:
-        # Создаем нового пользователя
+        # Create new user
         hashed_password = get_password_hash(user.password)
         user_dict = user.dict()
         user_dict["password"] = hashed_password
@@ -84,11 +84,11 @@ async def create_user(user: UserCreate) -> User:
         )
 
 async def authenticate_user(login: str, password: str) -> Optional[User]:
-    """Аутентификация пользователя по email или username"""
+    """Authenticate user by email or username"""
     try:
         db = get_db()
         
-        # Ищем пользователя по email или username
+        # Search for user by email or username
         user = await db.users.find_one({
             "$or": [
                 {"email": login},
@@ -122,7 +122,7 @@ async def authenticate_user(login: str, password: str) -> Optional[User]:
         )
 
 async def get_current_user(token: str = Depends(security)) -> User:
-    """Получение текущего пользователя по токену"""
+    """Get current user by token"""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -139,14 +139,14 @@ async def get_current_user(token: str = Depends(security)) -> User:
     
     db = get_db()
     try:
-        # Преобразуем строковый ID в ObjectId
+        # Convert string ID to ObjectId
         user = await db.users.find_one({"_id": ObjectId(user_id)})
         if user is None:
             raise credentials_exception
         
-        # Преобразуем ObjectId в строку для id
+        # Convert ObjectId to string for id
         user["id"] = str(user["_id"])
-        # Удаляем _id, так как он не нужен в модели
+        # Remove _id as it's not needed in the model
         del user["_id"]
         return User(**user)
     except Exception as e:
@@ -154,7 +154,7 @@ async def get_current_user(token: str = Depends(security)) -> User:
         raise credentials_exception
 
 async def refresh_access_token(refresh_token: str) -> str:
-    """Обновление access token с помощью refresh token"""
+    """Refresh access token using refresh token"""
     try:
         payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")
@@ -166,7 +166,7 @@ async def refresh_access_token(refresh_token: str) -> str:
             )
         
         db = get_db()
-        # Проверяем, существует ли пользователь
+        # Check if user exists
         user = await db.users.find_one({"_id": ObjectId(user_id)})
         if user is None:
             raise HTTPException(
@@ -175,7 +175,7 @@ async def refresh_access_token(refresh_token: str) -> str:
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
-        # Создаем новый access token
+        # Create new access token
         access_token_expires = timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
         access_token = create_access_token(
             data={"sub": str(user_id)}, expires_delta=access_token_expires
@@ -197,11 +197,11 @@ async def refresh_access_token(refresh_token: str) -> str:
 
 async def check_availability(email: Optional[str] = None, username: Optional[str] = None) -> Dict[str, Any]:
     """
-    Проверяет доступность email и username.
+    Check email and username availability.
     
     Args:
-        email: Email для проверки
-        username: Имя пользователя для проверки
+        email: Email to check
+        username: Username to check
         
     Returns:
         Dict[str, Any]: {"available": bool, "message": str}

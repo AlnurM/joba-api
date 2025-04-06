@@ -15,13 +15,13 @@ logger = logging.getLogger(__name__)
 @router.post("/signup", response_model=User)
 async def signup(user: UserCreate):
     """
-    Регистрация нового пользователя.
-    Требуется только email и пароль, username опционален.
+    Register a new user.
+    Only email and password are required, username is optional.
     """
     try:
         return await create_user(user)
     except HTTPException as e:
-        # Пробрасываем HTTPException дальше
+        # Propagate HTTPException
         raise e
     except Exception as e:
         logger.error(f"Error during signup: {e}")
@@ -33,8 +33,8 @@ async def signup(user: UserCreate):
 @router.post("/signin", response_model=Token)
 async def signin(user_data: UserLogin):
     """
-    Вход в систему.
-    Можно использовать email или username для входа.
+    User login.
+    Can use either email or username for login.
     """
     try:
         logger.info(f"Attempting to authenticate user with login: {user_data.login}")
@@ -48,7 +48,7 @@ async def signin(user_data: UserLogin):
         refresh_token = create_refresh_token(data={"sub": str(user.id)})
         return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
     except HTTPException as e:
-        # Пробрасываем HTTPException дальше
+        # Propagate HTTPException
         raise e
     except Exception as e:
         logger.error(f"Error during signin: {str(e)}")
@@ -60,7 +60,7 @@ async def signin(user_data: UserLogin):
 @router.post("/refresh", response_model=Token)
 async def refresh_token(refresh_token: str):
     """
-    Обновление access token с помощью refresh token
+    Refresh access token using refresh token
     """
     try:
         access_token = await refresh_access_token(refresh_token)
@@ -70,7 +70,7 @@ async def refresh_token(refresh_token: str):
             "token_type": "bearer"
         }
     except HTTPException as e:
-        # Пробрасываем HTTPException дальше
+        # Propagate HTTPException
         raise e
     except Exception as e:
         logger.error(f"Error during token refresh: {str(e)}")
@@ -82,15 +82,15 @@ async def refresh_token(refresh_token: str):
 @router.get("/me", response_model=User)
 async def read_users_me(current_user: User = Depends(get_current_user)):
     """
-    Получение информации о текущем пользователе
+    Get current user information
     """
     return current_user
 
 @router.post("/check-availability", response_model=AvailabilityResponse)
 async def check_username_email_availability(check_data: AvailabilityCheck):
     """
-    Проверка доступности email и username.
-    Можно проверить оба поля одновременно или по отдельности.
+    Check email and username availability.
+    Can check both fields simultaneously or separately.
     """
     try:
         result = await check_availability(
@@ -99,7 +99,7 @@ async def check_username_email_availability(check_data: AvailabilityCheck):
         )
         return AvailabilityResponse(**result)
     except HTTPException as e:
-        # Пробрасываем HTTPException дальше
+        # Propagate HTTPException
         raise e
     except Exception as e:
         logger.error(f"Error checking availability: {str(e)}")
