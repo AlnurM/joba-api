@@ -2,12 +2,13 @@ import os
 import json
 import logging
 import httpx
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from fastapi import HTTPException
 import base64
 from httpx import Timeout, Limits
 import asyncio
 import time
+from models.job_queries import JobQueryKeywords
 
 logger = logging.getLogger(__name__)
 
@@ -51,8 +52,7 @@ class ClaudeClient:
         try:
             async with httpx.AsyncClient(
                 timeout=self.timeout,
-                limits=self.limits,
-                http2=True
+                limits=self.limits
             ) as client:
                 logger.info(f"Sending request to Claude API (text length: {len(text)} characters)")
                 response = await client.post(
@@ -169,8 +169,7 @@ class ClaudeClient:
             # Create HTTP client with settings
             async with httpx.AsyncClient(
                 timeout=self.timeout,
-                limits=self.limits,
-                http2=True
+                limits=self.limits
             ) as client:
                 for attempt in range(3):  # Maximum 3 attempts
                     try:
@@ -304,8 +303,7 @@ class ClaudeClient:
 
             async with httpx.AsyncClient(
                 timeout=self.timeout,
-                limits=self.limits,
-                http2=True
+                limits=self.limits
             ) as client:
                 logger.info(f"Sending request to Claude API for generating {content_type}")
                 response = await client.post(
@@ -395,8 +393,7 @@ class ClaudeClient:
 
             async with httpx.AsyncClient(
                 timeout=self.timeout,
-                limits=self.limits,
-                http2=True
+                limits=self.limits
             ) as client:
                 logger.info("Sending request to Claude API for rendering cover letter")
                 response = await client.post(
@@ -539,4 +536,65 @@ class ClaudeClient:
             raise HTTPException(
                 status_code=500,
                 detail="Failed to analyze resume"
+            )
+
+    async def generate_job_query_keywords(self, candidate_data: dict) -> JobQueryKeywords:
+        """
+        Generate job query keywords based on candidate data
+        
+        Args:
+            candidate_data: Dictionary with candidate information
+            
+        Returns:
+            JobQueryKeywords object with generated keywords
+        """
+        prompt = f"""
+        Based on the following candidate data, generate job search keywords.
+        For each category, provide exactly 2 words or phrases that would be most relevant for job search.
+        
+        Categories:
+        - job_titles: Desired job titles
+        - required_skills: Key skills to look for
+        - work_arrangements: Preferred work arrangements
+        - positions: Desired positions/levels
+        - exclude_words: Words to exclude from search
+        
+        Candidate data:
+        {json.dumps(candidate_data, indent=2, ensure_ascii=False)}
+        
+        Return the response in JSON format with the following structure:
+        {{
+            "job_titles": ["word1", "word2"],
+            "required_skills": ["word1", "word2"],
+            "work_arrangements": ["word1", "word2"],
+            "positions": ["word1", "word2"],
+            "exclude_words": ["word1", "word2"]
+        }}
+        """
+        
+        try:
+            # Call Claude API with the prompt
+            response = await self.analyze_text(prompt, "Generate job search keywords based on the candidate data")
+            
+            # Extract text content from response
+            content = response.get("content", [{}])[0].get("text", "")
+            if not content:
+                raise ValueError("Empty response from Claude API")
+            
+            # Find JSON in response
+            start = content.find("{")
+            end = content.rfind("}") + 1
+            if start == -1 or end == 0:
+                raise ValueError("Could not find JSON in response")
+            
+            json_str = content[start:end]
+            
+            # Parse JSON and validate with Pydantic model
+            return JobQueryKeywords.model_validate_json(json_str)
+            
+        except Exception as e:
+            logger.error(f"Error generating job query keywords: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to generate job query keywords"
             ) 

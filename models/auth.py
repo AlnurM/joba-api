@@ -23,8 +23,8 @@ class TokenData(BaseModel):
 
 class AvailabilityCheck(BaseModel):
     """Model for checking email and username availability"""
-    email: str | None = None
-    username: str | None = None
+    email: Optional[str] = None
+    username: Optional[str] = None
 
 class AvailabilityResponse(BaseModel):
     """Response model for availability check"""

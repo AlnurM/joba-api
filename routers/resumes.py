@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status, Response, Form
-from models import Resume, ResumeCreate, User, ResumeStatusUpdate, ResumeScoringRequest
+from models import Resume, User, ResumeStatusUpdate, ResumeScoringRequest
 from models.resumes import ResumeStatus
 from core.auth import get_current_user
 from core.storage import save_file_content, get_file, is_allowed_file, ALLOWED_EXTENSIONS
