@@ -6,35 +6,84 @@ from models.job_queries import (
     JobQueryUpdate,
     JobQueryStatusUpdate,
     JobQuery,
+    JobQueryStatus
 )
 from models.users import User
 from core.auth import get_current_user
 from core.claude_client import ClaudeClient
 from bson import ObjectId
 from core.database import get_db
-from typing import List
+from typing import Dict, Any
 from datetime import datetime
 
 router = APIRouter(tags=["job-queries"])
 
-@router.get("/list", response_model=List[JobQuery])
+async def get_job_queries_by_user(
+    user_id: str,
+    page: int = 1,
+    per_page: int = 10
+) -> Dict[str, Any]:
+    """
+    Get user's job queries with pagination
+    """
+    skip = (page - 1) * per_page
+    db = get_db()
+    
+    # Get total number of documents
+    total = await db.job_queries.count_documents({"user_id": user_id})
+    
+    # Get documents with pagination
+    cursor = db.job_queries.find({"user_id": user_id}).sort([
+        ("status", 1),  # 1 for ascending, to have "active" first
+        ("created_at", -1)  # -1 for descending, to have newest first
+    ]).skip(skip).limit(per_page)
+    queries = await cursor.to_list(length=per_page)
+    
+    # Convert ObjectId to strings
+    processed_queries = []
+    for query in queries:
+        query_dict = {
+            "id": str(query["_id"]),
+            "user_id": query["user_id"],
+            "name": query["name"],
+            "keywords": query["keywords"],
+            "query": query["query"],
+            "status": query.get("status", JobQueryStatus.ARCHIVED),
+            "created_at": query.get("created_at", datetime.utcnow()),
+            "updated_at": query.get("updated_at", datetime.utcnow())
+        }
+        processed_queries.append(query_dict)
+    
+    return {
+        "list": processed_queries,
+        "pagination": {
+            "total": total,
+            "currentPage": page,
+            "totalPages": (total + per_page - 1) // per_page,
+            "perPage": per_page
+        }
+    }
+
+@router.get("/list", response_model=Dict[str, Any])
 async def list_job_queries(
+    page: int = 1,
+    per_page: int = 10,
     current_user: User = Depends(get_current_user)
 ):
-    """Get list of user's job queries"""
+    """Get list of user's job queries with pagination"""
     try:
-        db = get_db()
-        queries = await db.job_queries.find(
-            {"user_id": str(current_user.id)}
-        ).to_list(length=None)
-        return [JobQuery(**{**query, "id": str(query.pop("_id"))}) for query in queries]
+        return await get_job_queries_by_user(
+            user_id=str(current_user.id),
+            page=page,
+            per_page=per_page
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
         )
 
-@router.post("", response_model=JobQuery, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=JobQuery, status_code=status.HTTP_201_CREATED)
 async def create_job_query(
     query: JobQueryCreate,
     current_user: User = Depends(get_current_user)
