@@ -25,6 +25,14 @@ async def get_job_queries_by_user(
 ) -> Dict[str, Any]:
     """
     Get user's job queries with pagination
+    
+    Args:
+        user_id: User ID
+        page: Page number (1-based)
+        per_page: Number of items per page
+        
+    Returns:
+        Dictionary with list of queries and pagination info
     """
     skip = (page - 1) * per_page
     db = get_db()
@@ -70,7 +78,17 @@ async def list_job_queries(
     per_page: int = 10,
     current_user: User = Depends(get_current_user)
 ):
-    """Get list of user's job queries with pagination"""
+    """
+    Get list of user's job queries with pagination
+    
+    Args:
+        page: Page number (1-based)
+        per_page: Number of items per page
+        current_user: Current authenticated user
+        
+    Returns:
+        Dictionary with list of queries and pagination info
+    """
     try:
         return await get_job_queries_by_user(
             user_id=str(current_user.id),
@@ -88,7 +106,16 @@ async def create_job_query(
     query: JobQueryCreate,
     current_user: User = Depends(get_current_user)
 ):
-    """Create new job query"""
+    """
+    Create new job query
+    
+    Args:
+        query: Job query data
+        current_user: Current authenticated user
+        
+    Returns:
+        Created job query
+    """
     try:
         db = get_db()
         query_data = query.model_dump()
@@ -110,18 +137,37 @@ async def get_job_query(
     query_id: str,
     current_user: User = Depends(get_current_user)
 ):
-    """Get job query by ID"""
+    """
+    Get job query by ID
+    
+    Args:
+        query_id: Job query ID
+        current_user: Current authenticated user
+        
+    Returns:
+        Job query data
+    """
     try:
         db = get_db()
+        
+        # Check ObjectId validity
+        try:
+            object_id = ObjectId(query_id)
+        except:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid job query ID format"
+            )
+        
         query = await db.job_queries.find_one({
-            "_id": ObjectId(query_id),
+            "_id": object_id,
             "user_id": str(current_user.id)
         })
         
         if not query:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Job query not found"
+                detail="Job query not found or access denied"
             )
             
         return JobQuery(**{**query, "id": str(query.pop("_id"))})
@@ -139,15 +185,35 @@ async def update_job_query(
     query_update: JobQueryUpdate,
     current_user: User = Depends(get_current_user)
 ):
-    """Update job query"""
+    """
+    Update job query
+    
+    Args:
+        query_id: Job query ID
+        query_update: Update data
+        current_user: Current authenticated user
+        
+    Returns:
+        Updated job query
+    """
     try:
         db = get_db()
+        
+        # Check ObjectId validity
+        try:
+            object_id = ObjectId(query_id)
+        except:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid job query ID format"
+            )
+        
         update_data = query_update.model_dump(exclude_unset=True)
         update_data["updated_at"] = datetime.utcnow()
         
         result = await db.job_queries.update_one(
             {
-                "_id": ObjectId(query_id),
+                "_id": object_id,
                 "user_id": str(current_user.id)
             },
             {"$set": update_data}
@@ -156,11 +222,11 @@ async def update_job_query(
         if result.matched_count == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Job query not found"
+                detail="Job query not found or access denied"
             )
             
         updated_query = await db.job_queries.find_one({
-            "_id": ObjectId(query_id)
+            "_id": object_id
         })
         return JobQuery(**{**updated_query, "id": str(updated_query.pop("_id"))})
     except HTTPException:
@@ -177,12 +243,32 @@ async def update_job_query_status(
     status_update: JobQueryStatusUpdate,
     current_user: User = Depends(get_current_user)
 ):
-    """Update job query status"""
+    """
+    Update job query status
+    
+    Args:
+        query_id: Job query ID
+        status_update: New status
+        current_user: Current authenticated user
+        
+    Returns:
+        Updated job query
+    """
     try:
         db = get_db()
+        
+        # Check ObjectId validity
+        try:
+            object_id = ObjectId(query_id)
+        except:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid job query ID format"
+            )
+        
         result = await db.job_queries.update_one(
             {
-                "_id": ObjectId(query_id),
+                "_id": object_id,
                 "user_id": str(current_user.id)
             },
             {
@@ -196,13 +282,60 @@ async def update_job_query_status(
         if result.matched_count == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Job query not found"
+                detail="Job query not found or access denied"
             )
             
         updated_query = await db.job_queries.find_one({
-            "_id": ObjectId(query_id)
+            "_id": object_id
         })
         return JobQuery(**{**updated_query, "id": str(updated_query.pop("_id"))})
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.delete("/{query_id}", status_code=status.HTTP_200_OK)
+async def delete_job_query(
+    query_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Delete job query
+    
+    Args:
+        query_id: Job query ID
+        current_user: Current authenticated user
+        
+    Returns:
+        Success message
+    """
+    try:
+        db = get_db()
+        
+        # Check ObjectId validity
+        try:
+            object_id = ObjectId(query_id)
+        except:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid job query ID format"
+            )
+        
+        result = await db.job_queries.delete_one({
+            "_id": object_id,
+            "user_id": str(current_user.id)
+        })
+        
+        if result.deleted_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Job query not found or access denied"
+            )
+            
+        return {"message": "Job query deleted successfully"}
     except HTTPException:
         raise
     except Exception as e:
