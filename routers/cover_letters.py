@@ -21,19 +21,31 @@ router = APIRouter(tags=["cover-letters"])
 async def get_cover_letters_by_user(
     user_id: str,
     page: int = 1,
-    per_page: int = 10
+    per_page: int = 10,
+    status: Optional[CoverLetterStatus] = None
 ) -> Dict[str, Any]:
     """
     Get user's cover letters with pagination
+    
+    Args:
+        user_id: User ID
+        page: Page number
+        per_page: Items per page
+        status: Optional cover letter status filter
     """
     skip = (page - 1) * per_page
     db = get_db()
     
+    # Form search conditions
+    query = {"user_id": user_id}
+    if status is not None:
+        query["status"] = status
+    
     # Get total number of documents
-    total = await db.cover_letters.count_documents({"user_id": user_id})
+    total = await db.cover_letters.count_documents(query)
     
     # Get documents with pagination
-    cursor = db.cover_letters.find({"user_id": user_id}).sort([
+    cursor = db.cover_letters.find(query).sort([
         ("status", 1),  # 1 for ascending, to have "active" first (since active < archived alphabetically)
         ("created_at", -1)  # -1 for descending, to have newest first
     ]).skip(skip).limit(per_page)
@@ -67,6 +79,7 @@ async def get_cover_letters_by_user(
 async def list_cover_letters(
     page: int = 1,
     per_page: int = 10,
+    status: Optional[CoverLetterStatus] = None,
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -76,7 +89,8 @@ async def list_cover_letters(
         return await get_cover_letters_by_user(
             user_id=str(current_user.id),
             page=page,
-            per_page=per_page
+            per_page=per_page,
+            status=status
         )
     except Exception as e:
         raise HTTPException(

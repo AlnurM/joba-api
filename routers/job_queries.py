@@ -13,7 +13,7 @@ from core.auth import get_current_user
 from core.claude_client import ClaudeClient
 from bson import ObjectId
 from core.database import get_db
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from datetime import datetime
 
 router = APIRouter(tags=["job-queries"])
@@ -21,7 +21,8 @@ router = APIRouter(tags=["job-queries"])
 async def get_job_queries_by_user(
     user_id: str,
     page: int = 1,
-    per_page: int = 10
+    per_page: int = 10,
+    status: Optional[JobQueryStatus] = None
 ) -> Dict[str, Any]:
     """
     Get user's job queries with pagination
@@ -30,6 +31,7 @@ async def get_job_queries_by_user(
         user_id: User ID
         page: Page number (1-based)
         per_page: Number of items per page
+        status: Optional job query status filter
         
     Returns:
         Dictionary with list of queries and pagination info
@@ -37,11 +39,16 @@ async def get_job_queries_by_user(
     skip = (page - 1) * per_page
     db = get_db()
     
+    # Form search conditions
+    query = {"user_id": user_id}
+    if status is not None:
+        query["status"] = status
+    
     # Get total number of documents
-    total = await db.job_queries.count_documents({"user_id": user_id})
+    total = await db.job_queries.count_documents(query)
     
     # Get documents with pagination
-    cursor = db.job_queries.find({"user_id": user_id}).sort([
+    cursor = db.job_queries.find(query).sort([
         ("status", 1),  # 1 for ascending, to have "active" first
         ("created_at", -1)  # -1 for descending, to have newest first
     ]).skip(skip).limit(per_page)
@@ -76,6 +83,7 @@ async def get_job_queries_by_user(
 async def list_job_queries(
     page: int = 1,
     per_page: int = 10,
+    status: Optional[JobQueryStatus] = None,
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -84,6 +92,7 @@ async def list_job_queries(
     Args:
         page: Page number (1-based)
         per_page: Number of items per page
+        status: Optional job query status filter
         current_user: Current authenticated user
         
     Returns:
@@ -93,7 +102,8 @@ async def list_job_queries(
         return await get_job_queries_by_user(
             user_id=str(current_user.id),
             page=page,
-            per_page=per_page
+            per_page=per_page,
+            status=status
         )
     except Exception as e:
         raise HTTPException(
