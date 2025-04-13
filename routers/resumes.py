@@ -139,13 +139,13 @@ async def upload_resume(
         # Получаем созданное резюме и преобразуем его для возврата
         created_resume = await db.resumes.find_one({"_id": result.inserted_id})
         
-        # Преобразуем _id в строку и создаем правильную структуру для модели Pydantic
+        # Преобразуем _id в id и создаем правильную структуру для модели Pydantic
         resume_response = {
             **created_resume,
-            "id": str(created_resume["_id"])  # Используем _id вместо id, так как в модели есть alias="_id"
+            "id": str(created_resume["_id"])  # Используем id вместо _id
         }
         
-        logger.info(f"Resume successfully saved to database, ID: {resume_response['_id']}")
+        logger.info(f"Resume successfully saved to database, ID: {resume_response['id']}")
         
         return Resume(**resume_response)
         
