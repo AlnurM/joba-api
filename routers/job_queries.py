@@ -111,7 +111,7 @@ async def list_job_queries(
             detail=str(e)
         )
 
-@router.post("/", response_model=JobQuery, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=JobQuery, status_code=status.HTTP_201_CREATED)
 async def create_job_query(
     query: JobQueryCreate,
     current_user: User = Depends(get_current_user)
