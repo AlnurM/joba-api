@@ -139,15 +139,14 @@ async def upload_resume(
         # Получаем созданное резюме и преобразуем его для возврата
         created_resume = await db.resumes.find_one({"_id": result.inserted_id})
         
-        # Преобразуем _id в id и создаем правильную структуру для модели Pydantic
-        resume_response = {
-            **created_resume,
-            "id": str(created_resume["_id"])  # Используем id вместо _id
-        }
+        # Создаем словарь для ответа, удаляя _id и добавляя id
+        resume_dict = dict(created_resume)
+        resume_dict.pop("_id", None)  # Удаляем _id
+        resume_dict["id"] = str(result.inserted_id)  # Добавляем id
         
-        logger.info(f"Resume successfully saved to database, ID: {resume_response['id']}")
+        logger.info(f"Resume successfully saved to database, ID: {resume_dict['id']}")
         
-        return Resume(**resume_response)
+        return Resume(**resume_dict)
         
     except HTTPException:
         raise
