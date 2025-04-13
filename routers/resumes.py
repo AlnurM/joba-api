@@ -87,6 +87,7 @@ async def get_resumes_by_user(
 @router.post("/upload", response_model=Resume)
 async def upload_resume(
     file: UploadFile = File(...),
+    status: ResumeStatus = ResumeStatus.ARCHIVED,
     current_user: User = Depends(get_current_user),
     db = Depends(get_db)
 ):
@@ -95,6 +96,7 @@ async def upload_resume(
     
     Args:
         file: Resume file
+        status: Optional resume status (default: ARCHIVED)
         current_user: Current user
         db: Database connection
         
@@ -126,7 +128,7 @@ async def upload_resume(
             "user_id": str(current_user.id),
             "filename": file.filename,
             "file_id": file_id,
-            "status": ResumeStatus.ARCHIVED,
+            "status": status,
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
         }
