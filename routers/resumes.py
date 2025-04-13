@@ -8,10 +8,9 @@ from core.resume_processor import process_resume
 from core.claude_client import ClaudeClient
 from datetime import datetime
 import logging
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any, Optional
 from bson import ObjectId
 import os
-import json
 from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 
 router = APIRouter(tags=["resumes"])
@@ -139,12 +138,11 @@ async def upload_resume(
         # Получаем созданное резюме и преобразуем его для возврата
         created_resume = await db.resumes.find_one({"_id": result.inserted_id})
         
-        # Создаем словарь для ответа, удаляя _id и добавляя id
+        # Создаем словарь для ответа, сохраняя _id как строку
         resume_dict = dict(created_resume)
-        resume_dict.pop("_id", None)  # Удаляем _id
-        resume_dict["id"] = str(result.inserted_id)  # Добавляем id
+        resume_dict["_id"] = str(result.inserted_id)  # Сохраняем _id как строку
         
-        logger.info(f"Resume successfully saved to database, ID: {resume_dict['id']}")
+        logger.info(f"Resume successfully saved to database, ID: {resume_dict['_id']}")
         
         return Resume(**resume_dict)
         
