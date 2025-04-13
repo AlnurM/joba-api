@@ -142,7 +142,7 @@ async def upload_resume(
         # Преобразуем _id в строку и создаем правильную структуру для модели Pydantic
         resume_response = {
             **created_resume,
-            "_id": str(created_resume["_id"])  # Используем _id вместо id, так как в модели есть alias="_id"
+            "id": str(created_resume["_id"])  # Используем _id вместо id, так как в модели есть alias="_id"
         }
         
         logger.info(f"Resume successfully saved to database, ID: {resume_response['_id']}")
