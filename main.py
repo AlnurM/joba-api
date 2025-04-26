@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from core.database import init_db
-from routers import auth, resumes, cover_letters, default, job_queries
+from routers import auth, resumes, cover_letters, default, job_queries, job_flow
 
 # Configure logging
 logging.basicConfig(
@@ -55,4 +55,5 @@ app.include_router(default.router, tags=["default"])
 app.include_router(auth.router, prefix="/auth", tags=["authentication"])
 app.include_router(resumes.router, prefix="/resumes", tags=["resumes"])
 app.include_router(cover_letters.router, prefix="/cover-letters", tags=["cover-letters"])
-app.include_router(job_queries.router, prefix="/job-queries", tags=["job-queries"]) 
+app.include_router(job_queries.router, prefix="/job-queries", tags=["job-queries"])
+app.include_router(job_flow.router, prefix="/job-flow", tags=["job-flow"]) 
