@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from models import User, UserCreate
 from models.auth import SignInRequest, AccessToken, AvailabilityCheck, AvailabilityResponse
 from core.auth import (
-    get_password_hash, verify_password, create_access_token,
+    create_access_token,
     create_refresh_token, authenticate_user, get_current_user,
     refresh_access_token, ACCESS_TOKEN_EXPIRE_HOURS,
     check_availability, create_user
@@ -13,14 +13,21 @@ from datetime import timedelta
 router = APIRouter(tags=["authentication"])
 logger = logging.getLogger(__name__)
 
-@router.post("/signup", response_model=User)
+@router.post("/signup", response_model=AccessToken)
 async def signup(user: UserCreate):
     """
     Register a new user.
     Only email and password are required, username is optional.
+    Returns access and refresh tokens upon successful registration.
     """
     try:
-        return await create_user(user)
+        created_user = await create_user(user)
+        access_token_expires = timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
+        access_token = create_access_token(
+            data={"sub": str(created_user.id)}, expires_delta=access_token_expires
+        )
+        refresh_token = create_refresh_token(data={"sub": str(created_user.id)})
+        return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
     except HTTPException as e:
         # Propagate HTTPException
         raise e
