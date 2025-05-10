@@ -9,6 +9,9 @@ from core.auth import (
 )
 import logging
 from datetime import timedelta
+from pydantic import BaseModel
+from core.database import get_db
+from bson import ObjectId
 
 router = APIRouter(tags=["authentication"])
 logger = logging.getLogger(__name__)
@@ -114,4 +117,42 @@ async def check_username_email_availability(check_data: AvailabilityCheck):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error checking availability"
+        )
+
+class OnboardingUpdate(BaseModel):
+    """Model for updating onboarding status"""
+    onboarding: bool
+
+@router.patch("/onboarding", response_model=User)
+async def update_onboarding(
+    update_data: OnboardingUpdate,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Update user's onboarding status
+    """
+    try:
+        db = get_db()
+        result = await db.users.update_one(
+            {"_id": ObjectId(current_user.id)},
+            {"$set": {"onboarding": update_data.onboarding}}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+            
+        # Get updated user
+        updated_user = await db.users.find_one({"_id": ObjectId(current_user.id)})
+        updated_user["id"] = str(updated_user["_id"])
+        del updated_user["_id"]
+        
+        return User(**updated_user)
+    except Exception as e:
+        logger.error(f"Error updating onboarding status: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error updating onboarding status"
         ) 

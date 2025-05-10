@@ -9,6 +9,7 @@ class UserBase(BaseModel):
     """Base user model with core fields"""
     email: str
     username: Optional[str] = None
+    onboarding: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

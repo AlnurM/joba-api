@@ -115,6 +115,7 @@ async def authenticate_user(login: str, password: str) -> Optional[User]:
             "id": str(user["_id"]),
             "email": user["email"],
             "username": user.get("username"),
+            "onboarding": user.get("onboarding", False),
             "created_at": user.get("created_at", datetime.utcnow()),
             "updated_at": user.get("updated_at", datetime.utcnow())
         }
@@ -156,6 +157,11 @@ async def get_current_user(token: str = Depends(security)) -> User:
         user["id"] = str(user["_id"])
         # Remove _id as it's not needed in the model
         del user["_id"]
+        
+        # Ensure onboarding field exists
+        if "onboarding" not in user:
+            user["onboarding"] = False
+            
         return User(**user)
     except Exception as e:
         logger.error(f"Error getting user: {str(e)}")
