@@ -133,19 +133,18 @@ async def update_onboarding(
     """
     try:
         db = get_db()
-        result = await db.users.update_one(
+        await db.users.update_one(
             {"_id": ObjectId(current_user.id)},
             {"$set": {"onboarding": update_data.onboarding}}
         )
-        
-        if result.modified_count == 0:
+            
+        updated_user = await db.users.find_one({"_id": ObjectId(current_user.id)})
+        if not updated_user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
             )
             
-        # Get updated user
-        updated_user = await db.users.find_one({"_id": ObjectId(current_user.id)})
         updated_user["id"] = str(updated_user["_id"])
         del updated_user["_id"]
         
